@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>歴史タイムトラベル</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@700;800&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 絵巻をめくって時をさかのぼる旅。落ち着いた和の色で、子どもも大人も
+   IDEA: 真鍮のタイムマシンと、和紙の札・巻物・すごろく盤
+   PICTURE: 時代の風景の上に置かれたすごろく盤
+   COLOUR and TYPE: 生成り・墨・藍・抹茶・えんじ・金茶 / Shippori Mincho B1 + Zen Maru Gothic
+   LAYOUT: iPad横置き中心。上に帯、下にタブ、中央に盤や問題 */
+:root{color-scheme:light;--washi:#f3ecdf;--washi2:#e7dcc7;--sumi:#2d2a26;--sumi2:#5b544a;--usu:#8b8478;--ai:#3e5b74;--aid:#24364a;--night:#1b212c;--matcha:#7d8c55;--enji:#8c3d45;--kin:#b08a4f;--kin2:#d9c391;--teal:#5f7f80;--ok:#5f7f4a;--ng:#9a4a4a;--mincho:"Shippori Mincho B1","Hiragino Mincho ProN",serif}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:var(--washi);color:var(--sumi);font:500 17px/1.6 "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+rt{font-size:.5em;font-weight:500;letter-spacing:0}
+body.nofuri rt{display:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible{outline:3px solid var(--kin);outline-offset:2px}
+.scr{position:fixed;inset:0;display:none;flex-direction:column;overflow:hidden}
+.scr.on{display:flex}
+.btn{min-height:48px;padding:8px 22px;border-radius:12px;font-weight:700;font-size:18px;background:var(--washi2);border:1px solid #c9b994;color:var(--sumi)}
+.btn.main{background:var(--ai);color:#f3ecdf;border-color:var(--aid);box-shadow:0 3px 0 var(--aid)}
+.btn.main:active{transform:translateY(2px);box-shadow:0 1px 0 var(--aid)}
+.btn.enji{background:var(--enji);color:#f3ecdf;border-color:#6d2c33;box-shadow:0 3px 0 #6d2c33}
+.btn.ghost{background:transparent;border:1px solid rgba(243,236,223,.4);color:#f3ecdf;min-height:44px;font-size:16px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.muted{color:var(--usu)}
+h1,h2,h3{font-family:var(--mincho);font-weight:800;margin:0;line-height:1.25}
+/* ---- 旅人選び ---- */
+#sProfile{background:radial-gradient(120% 80% at 50% 0%,#33485c,var(--night));color:#efe6d4;align-items:center;overflow:auto}
+.pwrap{width:min(720px,92vw);padding:6vh 0 40px;display:flex;flex-direction:column;align-items:center;gap:22px}
+.logo{width:min(300px,60vw)}
+.ttl{font-size:clamp(40px,7vw,64px);letter-spacing:.08em;text-align:center;color:#efe2c4;text-shadow:0 2px 0 #10151d}
+.ttl small{display:block;font-size:.32em;letter-spacing:.3em;color:var(--kin2);margin-top:8px}
+#plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;width:100%}
+.pbtn{display:flex;flex-direction:column;align-items:flex-start;padding:14px 18px;border-radius:14px;background:linear-gradient(#efe4cc,#dccaa4);color:var(--sumi);border:1px solid #b49b6e;box-shadow:0 4px 0 #8f7a56;text-align:left;min-height:72px}
+.pbtn .pn{font-family:var(--mincho);font-size:22px;font-weight:800}
+.pbtn .pm{font-size:13px;color:var(--sumi2)}
+.pnew{display:flex;gap:10px;width:100%;flex-wrap:wrap}
+.pnew input{flex:1;min-width:180px;min-height:52px;border-radius:12px;border:1px solid #b49b6e;background:#f3ecdf;padding:0 16px;font:inherit;font-size:18px}
+.thold{margin-top:14px;font-size:14px;color:#9fa9b5;border:1px dashed #56657a;border-radius:10px;padding:10px 16px;min-height:44px;position:relative;overflow:hidden}
+.thold i{position:absolute;left:0;bottom:0;height:3px;background:var(--kin);width:0}
+.thold.hold i{width:100%;transition:width 1.3s linear}
+/* ---- ホーム ---- */
+.top{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--aid);color:#efe6d4;flex-wrap:wrap}
+.top h1{font-size:22px;letter-spacing:.06em;color:#efe2c4;margin-right:auto}
+.top .tg{font-size:14px;padding:6px 12px;min-height:40px;border-radius:10px;border:1px solid rgba(239,230,212,.3)}
+.top .tg.off{opacity:.5;text-decoration:line-through}
+#pane{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+.tabs{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#26303c;padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+.tabs button{color:#b9c0c8;min-height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:14px;border-radius:10px}
+.tabs button b{font-family:var(--mincho);font-size:20px;line-height:1}
+.tabs button.on{background:#3a4757;color:#f0e2c2}
+.travel{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:28px;padding:24px 28px;align-items:start}
+@media(max-width:820px){.travel{grid-template-columns:1fr}.dialbox{max-width:420px;margin:0 auto}}
+.dialbox{display:flex;flex-direction:column;align-items:center;gap:10px;position:sticky;top:0}
+.dial{width:100%;max-width:380px;filter:drop-shadow(0 10px 18px rgba(30,30,40,.25))}
+.dial .dg{font-family:var(--mincho);font-size:22px;fill:#efe6d4;font-weight:800}
+.dial .dc{font-family:var(--mincho);font-size:30px;fill:#26384a;font-weight:800}
+.g1{animation:spin 60s linear infinite;transform-box:fill-box;transform-origin:center}
+.g2{animation:spin 24s linear infinite reverse;transform-box:fill-box;transform-origin:center}
+.needle{animation:sway 6s ease-in-out infinite;transform-origin:0 0}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes sway{50%{transform:rotate(30deg)}}
+.who{text-align:center}.who b{font-family:var(--mincho);font-size:26px;display:block}.who span{color:var(--enji);font-weight:700}
+.lead{margin:4px 0;color:var(--sumi2);text-align:center}
+.doors{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px}
+.door{position:relative;aspect-ratio:3/4.6;border-radius:10px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;color:#f3ecdf;overflow:hidden;box-shadow:0 5px 0 rgba(0,0,0,.25),inset 0 0 0 3px rgba(243,236,223,.18);transition:transform .15s}
+.door:active{transform:scale(.97)}
+.door::before{content:"";position:absolute;inset:8px;border:1px solid rgba(243,236,223,.35);border-radius:6px;background:repeating-linear-gradient(90deg,transparent 0 24px,rgba(243,236,223,.06) 24px 25px)}
+.door .dn{writing-mode:vertical-rl;font-family:var(--mincho);font-weight:800;font-size:22px;letter-spacing:.12em;position:relative;flex:1;display:flex;align-items:center}
+.door .dy{position:relative;font-size:12px;opacity:.85}.door.long .dn{font-size:18px;letter-spacing:.04em}
+.door .pips{position:relative;display:flex;gap:3px;margin-top:4px}
+.door .pips i{width:7px;height:7px;border-radius:50%;background:rgba(243,236,223,.25)}
+.door .pips i.f{background:var(--kin2)}
+.door.lock{filter:grayscale(.85) brightness(.75)}
+.door .lk{position:relative;font-size:12px;background:rgba(0,0,0,.35);padding:2px 8px;border-radius:20px}
+.door.clr::after{content:"済";position:absolute;top:8px;right:8px;width:30px;height:30px;border-radius:50%;background:var(--enji);font-family:var(--mincho);display:grid;place-items:center;font-size:16px;border:2px solid #f3ecdf}
+.door.tatsu{background:linear-gradient(160deg,#3a3125,#14110d)!important;color:var(--kin2)}
+/* ---- 盤 ---- */
+#sBoard{background:#e9dfc9}
+.bhead{display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(36,54,74,.95);color:#efe6d4;flex-wrap:wrap}
+.bhead h2{font-size:24px;letter-spacing:.06em;margin-right:auto}
+.bhead .bp{font-size:15px;color:var(--kin2)}
+.bwrap{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;background:linear-gradient(#e4d6bb,#cdbf98)}
+#board{width:100%;height:100%;display:block}
+.sq{cursor:pointer}
+.sq .pulse{fill:none;stroke:#f3ecdf;stroke-width:4;opacity:0}
+.sq.cur .pulse{animation:pulse 1.6s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%{opacity:.9;transform:scale(.85)}100%{opacity:0;transform:scale(1.5)}}
+.sq .sqg{font-family:var(--mincho);font-weight:800;font-size:30px;fill:var(--sumi)}
+.sq.lk{opacity:.55}
+.sq .num{font-size:15px;font-weight:700;fill:#f3ecdf}
+.trav{transition:transform 1s cubic-bezier(.5,0,.3,1)}
+.bhint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(36,54,74,.88);color:#efe6d4;padding:8px 18px;border-radius:30px;font-size:15px;white-space:nowrap}
+/* ---- ワープ ---- */
+#sWarp{background:#181e2a;align-items:center;justify-content:center}
+#wcv{position:absolute;inset:0;width:100%;height:100%}
+.wy{position:relative;font-family:var(--mincho);font-weight:800;font-size:clamp(48px,10vw,110px);color:#efe2c4;text-shadow:0 0 30px rgba(217,195,145,.6);font-variant-numeric:tabular-nums}
+.wm{position:relative;font-family:var(--mincho);font-size:clamp(26px,4vw,40px);color:var(--kin2);min-height:1.6em;margin-top:8px}
+#wFlash{position:absolute;inset:0;background:#f3ecdf;opacity:0;pointer-events:none;transition:opacity .5s}
+#wFlash.on{animation:flash 1.1s ease-out}
+@keyframes flash{0%{opacity:0}15%{opacity:.85}100%{opacity:0}}
+/* ---- 問題 ---- */
+#sQuiz{background:#d8ccb2}
+.qbg{position:absolute;inset:0;opacity:.45;filter:blur(2px) saturate(.8)}
+.qbg svg{width:100%;height:100%}
+#sQuiz.boss{background:#14161d}#sQuiz.boss .qbg{opacity:.18;filter:blur(3px) grayscale(.5)}
+#sQuiz.tatsu{background:radial-gradient(circle at 50% 30%,#3a3125,#100e0b)}#sQuiz.tatsu .qbg{display:none}
+.qtop{position:relative;display:flex;align-items:center;gap:14px;padding:10px 16px;background:rgba(36,54,74,.92);color:#efe6d4}
+.boss .qtop,.tatsu .qtop{background:rgba(10,10,12,.7)}
+.qtitle{font-family:var(--mincho);font-size:20px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brush{flex:1;height:14px;background:rgba(243,236,223,.15);border-radius:10px;overflow:hidden}
+.brush i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c9a868,var(--kin2));border-radius:10px;transition:width .6s cubic-bezier(.3,0,.2,1)}
+.qcount{font-size:15px;white-space:nowrap}
+.qmain{position:relative;flex:1;display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;padding:16px 22px 8px;overflow:auto}
+@media(max-width:820px){.qmain{grid-template-columns:1fr}.qnpc{flex-direction:row!important;align-items:center}.qnpc .pt{width:72px!important}}
+.qnpc{display:flex;flex-direction:column;align-items:center;gap:8px}
+.qnpc .pt{width:170px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.25))}
+.qnpc .nm{font-weight:700;font-size:15px;color:var(--sumi2)}
+.boss .qnpc .nm,.tatsu .qnpc .nm{color:var(--kin2)}
+.bub{background:#f3ecdf;border-radius:14px;padding:10px 14px;font-size:15px;position:relative;box-shadow:0 3px 0 rgba(0,0,0,.15);max-width:220px}
+.boss .bub{background:#2a2226;color:#f0dcc8;border:1px solid #6d2c33}
+.tatsu .bub{background:#2b251c;color:var(--kin2);border:1px solid #6b5630}
+.qcol{display:flex;flex-direction:column;gap:14px;max-width:880px;width:100%;margin:0 auto}
+.paper{position:relative;background:linear-gradient(#f6f0e4,#efe6d4);border-radius:6px;padding:20px 28px 22px;box-shadow:0 8px 20px rgba(40,30,20,.18);border-left:14px solid #8c6f45;border-right:14px solid #8c6f45}
+.paper.unroll{animation:unroll .55s cubic-bezier(.3,0,.2,1)}
+@keyframes unroll{from{clip-path:inset(0 50% 0 50%)}to{clip-path:inset(0 0 0 0)}}
+.boss .paper{background:linear-gradient(#efe2d0,#e1cfb6);border-color:#6d2c33}
+.tatsu .paper{border-color:#3a2f1e;background:linear-gradient(#f4ead2,#e6d6b0)}
+.qno{font-family:var(--mincho);font-weight:800;color:var(--enji);font-size:16px}
+.qtext{font-size:clamp(20px,2.4vw,26px);font-weight:700;line-height:1.75;margin-top:2px}
+.photo{margin:10px auto 0;width:min(360px,80%);text-align:center}.photo img{width:100%;max-height:34vh;object-fit:contain;display:block;border-radius:10px;background:#e4e2db;box-shadow:0 4px 12px rgba(0,0,0,.15)}.photo figcaption{font-size:14px;line-height:1.6;color:var(--sumi2);margin-top:6px}.photo small{font-size:12px;color:var(--usu)}.expph .photo{float:right;width:min(200px,40%);margin:0 0 8px 16px}.cred{font-size:14px!important;color:var(--sumi2);margin:4px 0!important}.modal .photo{width:min(300px,80%)}
+.qfig .pic{width:min(240px,60%);margin:10px auto 0}
+.qfig svg,.pic svg{width:100%;display:block}
+.stampbox{position:absolute;right:16px;top:8px;width:110px;pointer-events:none}
+.stampbox svg{animation:stamp .45s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stamp{from{transform:scale(2.2) rotate(-30deg);opacity:0}to{transform:scale(1) rotate(-8deg);opacity:.92}}
+.qans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.qans.one{grid-template-columns:1fr}
+.fuda{position:relative;min-height:72px;padding:12px 18px 12px 30px;border-radius:10px;background:linear-gradient(#efe1c2,#dfc9a0);border:1px solid #b49b6e;box-shadow:0 4px 0 #9c8460;font-size:clamp(17px,2vw,21px);font-weight:700;text-align:left;line-height:1.6;transition:transform .12s,opacity .3s,background .3s}
+.fuda::before{content:"";position:absolute;left:11px;top:50%;width:9px;height:9px;margin-top:-5px;border-radius:50%;background:#a68c62;box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+.fuda:active{transform:translateY(3px);box-shadow:0 1px 0 #9c8460}
+.fuda.ok{background:linear-gradient(#dfe6cc,#c6d3a8);border-color:var(--ok);box-shadow:0 4px 0 #4d6a3c}
+.fuda.ng{background:linear-gradient(#ead2cc,#d9b5ac);border-color:var(--ng);box-shadow:0 4px 0 #7d3a3a}
+.fuda.gone{opacity:.25;pointer-events:none}
+.fuda.dim{opacity:.55}
+.tfrow{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.tfb{min-height:120px;font-size:64px;font-family:var(--mincho);text-align:center;padding:0}
+.tfb::before{display:none}
+.olist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.oi{touch-action:none;display:flex;align-items:center;gap:12px;cursor:grab;padding-left:20px}
+.oi::before{display:none}
+.oi .grip{flex:none;width:22px;height:26px;background:radial-gradient(circle,#8c7552 2px,transparent 2.5px) 0 0/8px 8px;opacity:.8}
+.oi .on{flex:none;font-family:var(--mincho);color:var(--enji);font-size:18px}
+.oi.drag{z-index:5;box-shadow:0 10px 20px rgba(0,0,0,.25);background:linear-gradient(#f6ebd2,#e8d6b0);transition:none}
+.inst{margin:0;color:var(--sumi2);font-size:15px}
+.boss .inst,.tatsu .inst{color:#d8c9b0}
+.pairs{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:12px 64px}
+.pairs svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.pc{display:flex;flex-direction:column;gap:12px}
+.pc .fuda{min-height:64px}
+.fuda.sel{outline:4px solid var(--kin);outline-offset:2px}
+.mapq{background:#c9d3cf;border-radius:12px;padding:6px;box-shadow:inset 0 0 0 2px #a9b6b2}
+.mapq svg{width:100%;max-height:52vh;display:block}
+.pin{cursor:pointer}.pin text{font-size:15px;font-weight:700;fill:#f3ecdf;font-family:"Zen Maru Gothic",sans-serif}
+.pin.dim{opacity:.35}
+.exp{background:#f6f0e4;border-radius:12px;padding:16px 22px;box-shadow:0 6px 16px rgba(40,30,20,.18);border-top:6px solid var(--usu);animation:rise .35s ease-out}
+.exp.ok{border-top-color:var(--ok)}.exp.ng{border-top-color:var(--enji)}
+@keyframes rise{from{transform:translateY(16px);opacity:0}}
+.exph{font-family:var(--mincho);font-weight:800;font-size:24px}
+.exp.ok .exph{color:var(--ok)}.exp.ng .exph{color:var(--enji)}
+.expa{margin:6px 0;font-weight:700;font-size:18px}
+.expa span{display:inline-block;background:var(--sumi);color:#f3ecdf;font-size:13px;padding:1px 10px;border-radius:20px;margin-right:8px;vertical-align:middle}
+.exp p{margin:6px 0 12px;font-size:17px;line-height:1.85}
+.exp ol{margin:6px 0;padding-left:1.4em;font-weight:700}
+.tl{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 0}
+.tl b{background:var(--washi2);border-radius:8px;padding:4px 10px;font-size:15px}
+.tl i{color:var(--usu);font-style:normal}
+.hints{position:relative;display:flex;align-items:center;gap:10px;padding:8px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(36,54,74,.9);color:#efe6d4;overflow-x:auto}
+.boss .hints,.tatsu .hints{background:rgba(10,10,12,.7)}
+.hints .hl{font-size:14px;white-space:nowrap}
+.hc{flex:none;width:58px;height:58px;border-radius:50%;background:#efe6d4;padding:2px;border:3px solid #8f7a56;position:relative}
+.hc .pt{width:100%;height:100%}
+.hc.rel{border-color:var(--kin2);box-shadow:0 0 0 3px rgba(217,195,145,.5),0 0 18px rgba(217,195,145,.9);animation:glow 1.4s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 6px rgba(217,195,145,.2),0 0 26px rgba(217,195,145,.9)}}
+.hc.used{opacity:.4}
+/* ---- モーダル ---- */
+.modal{position:fixed;inset:0;background:rgba(20,22,28,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50;opacity:0;transition:opacity .25s}
+.modal.on{opacity:1}
+.sheet{background:var(--washi);border-radius:18px;padding:24px 26px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.35);transform:translateY(16px);transition:transform .3s}
+.modal.on .sheet{transform:none}
+.modal.dark{background:rgba(5,5,8,.82)}
+.modal.dark .sheet{background:#1d1a1c;color:#f0dcc8;border:1px solid #6d2c33}
+.modal.wide .sheet{width:min(820px,100%)}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.talk{display:flex;gap:18px;align-items:flex-end}
+.talk .pt{width:130px;flex:none}
+.talk .tb{flex:1}
+.talk .tn{font-weight:700;color:var(--enji);font-size:15px}
+.modal.dark .talk .tn{color:var(--kin2)}
+.talk .tt{font-size:20px;line-height:1.9;min-height:3.8em;font-weight:700}
+.talk .sqh{font-family:var(--mincho);font-size:15px;color:var(--usu)}
+@media(max-width:560px){.talk{flex-direction:column;align-items:center}.talk .pt{width:96px}}
+.res{text-align:center}
+.res h2{font-size:30px;color:var(--ai)}
+.res.win h2{color:var(--enji)}
+.res .big{font-family:var(--mincho);font-size:72px;font-weight:800;line-height:1.1}
+.res .big small{font-size:.4em;color:var(--usu)}
+.gains{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+.gains span{background:var(--washi2);border-radius:20px;padding:4px 14px;font-size:15px}
+.rank{display:inline-block;font-family:var(--mincho);font-weight:800;font-size:22px;padding:2px 16px;border:2px solid currentColor;border-radius:8px;margin:6px 0}
+/* ---- カード ---- */
+.card{width:180px;aspect-ratio:5/7.2;border-radius:12px;padding:7px;background:#8a7458;box-shadow:0 6px 14px rgba(0,0,0,.25);position:relative}
+.card.r2{background:linear-gradient(135deg,#9aa1a5,#6f777c)}
+.card.r3{background:linear-gradient(135deg,#9c4b52,#6d2c33)}
+.card.gold{background:linear-gradient(135deg,#e2cc96,#9a7843,#e2cc96)}
+.card .cin{height:100%;border-radius:7px;background:linear-gradient(#f6efe1,#e9dcc2);display:flex;flex-direction:column;align-items:center;padding:8px 6px;text-align:center;overflow:hidden;position:relative}
+.card .cimg{width:78%;aspect-ratio:1;border-radius:50%;overflow:hidden;border:3px solid rgba(0,0,0,.12)}
+.card .cimg .pt{width:100%;height:100%}
+.card .cname{font-family:var(--mincho);font-weight:800;font-size:20px;margin-top:6px;line-height:1.3}
+.card .ctitle{font-size:12px;color:var(--sumi2);line-height:1.5}
+.card .cstar{color:var(--kin);font-size:18px;letter-spacing:2px;margin-top:auto}
+.card.gold .cin::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,240,200,.55) 45%,transparent 60%);animation:shine 2.8s ease-in-out infinite}
+@keyframes shine{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.card.lockc{background:#b9b0a0}.card.lockc .cin{background:#d9d1c2;justify-content:center;font-family:var(--mincho);font-size:44px;color:#a39a89}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;padding:22px 26px}
+.cgrid .card{width:100%}
+.flip{perspective:1200px;width:min(280px,70vw);margin:0 auto;cursor:pointer}
+.flip .fi{position:relative;transition:transform .7s;transform-style:preserve-3d;aspect-ratio:5/7.2}
+.flip.back .fi{transform:rotateY(180deg)}
+.flip .card{position:absolute;inset:0;width:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.flip .card .cname{font-size:28px}.flip .card .ctitle{font-size:14px}
+.flip .cb{transform:rotateY(180deg)}
+.flip .cb .cin{justify-content:flex-start;text-align:left;padding:14px;gap:8px;font-size:14px;line-height:1.7}
+.flip .cb h3{font-size:20px;align-self:center}
+.cb .bl{display:flex;gap:8px}.cb .bl em{font-style:normal;color:var(--kin);flex:none}
+.cb .bl.lk{color:var(--usu)}
+.cget{text-align:center;position:relative}
+.cget .card{margin:10px auto 16px;width:200px;animation:pop .7s cubic-bezier(.2,1.5,.4,1)}
+@keyframes pop{from{transform:scale(.3) rotate(-12deg);opacity:0}}
+.rays{position:absolute;left:50%;top:150px;width:520px;height:520px;margin:-260px;background:repeating-conic-gradient(rgba(217,195,145,.28) 0 8deg,transparent 8deg 22deg);border-radius:50%;animation:spin 20s linear infinite;pointer-events:none;mask:radial-gradient(circle,#000 30%,transparent 70%);-webkit-mask:radial-gradient(circle,#000 30%,transparent 70%)}
+.cget h2{font-size:26px;color:var(--enji);position:relative}
+/* ---- 絵巻 ---- */
+.panehead{padding:18px 26px 0}
+.panehead h2{font-size:28px}
+.panehead p{margin:4px 0 0;color:var(--sumi2)}
+.emaki{display:flex;overflow-x:auto;margin:16px 0;padding:16px 26px;background:linear-gradient(#b89a6a,#a3855a);box-shadow:inset 0 8px 10px -6px rgba(0,0,0,.4),inset 0 -8px 10px -6px rgba(0,0,0,.4);scroll-behavior:smooth}
+.esec{flex:none;width:260px;height:340px;position:relative;background:#f1e8d6;border-right:1px dashed #c4b190;overflow:hidden;transition:filter 1.2s}
+.esec:first-child{border-radius:6px 0 0 6px}.esec:last-child{border-radius:0 6px 6px 0;border-right:0}
+.esec .art{position:absolute;inset:0}
+.esec .art svg{width:100%;height:100%}
+.esec .wm{position:absolute;right:-10px;bottom:-30px;font-family:var(--mincho);font-size:200px;font-weight:800;opacity:.12;line-height:1}
+.esec .en{position:absolute;top:12px;left:12px;writing-mode:vertical-rl;font-family:var(--mincho);font-weight:800;font-size:22px;background:rgba(243,236,223,.85);padding:10px 6px;border-radius:6px}
+.esec .meds{position:absolute;right:10px;top:12px;left:60px;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.med{width:76px;text-align:center;font-size:12px;font-weight:700;background:rgba(243,236,223,.92);border-radius:10px;padding:4px;animation:pop .6s}
+.med .pt{width:60px;height:60px;border-radius:50%}
+.esec .cnt{position:absolute;bottom:10px;left:12px;font-size:13px;background:rgba(36,54,74,.85);color:#efe6d4;padding:2px 10px;border-radius:20px}
+.esec.hot{outline:4px solid var(--kin);outline-offset:-4px}
+.tray{display:flex;gap:12px;padding:0 26px 26px;flex-wrap:wrap}
+.tcard{width:96px;text-align:center;background:#efe4cc;border:1px solid #b49b6e;border-radius:12px;padding:6px;font-size:13px;font-weight:700;touch-action:none;box-shadow:0 4px 0 #9c8460}
+.tcard .pt{width:76px;height:76px;border-radius:50%}
+.tcard.sel{outline:4px solid var(--kin)}
+.dragghost{position:fixed;z-index:80;pointer-events:none;transform:translate(-50%,-50%) rotate(-4deg) scale(1.08);opacity:.92}
+/* ---- ことば・地図・記録 ---- */
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;padding:16px 26px 26px}
+.wd{min-height:64px;border-radius:10px;background:#efe4cc;border:1px solid #c9b994;font-weight:700;font-size:18px;padding:8px}
+.wd.lk{background:#e2dbcd;color:#a39a89;border-style:dashed}
+.mapwrap{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;padding:16px 26px 26px;align-items:start}
+@media(max-width:820px){.mapwrap{grid-template-columns:1fr}}
+.mapbox{background:#c9d3cf;border-radius:14px;padding:8px}
+.mapbox svg{width:100%;display:block}
+.minfo{background:#f6f0e4;border-radius:14px;padding:18px;box-shadow:0 4px 12px rgba(0,0,0,.1)}
+.minfo h3{font-size:24px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;padding:16px 26px}
+.stat{background:#f6f0e4;border-radius:12px;padding:12px 16px}
+.stat b{display:block;font-family:var(--mincho);font-size:32px;line-height:1.2}
+.stat span{font-size:14px;color:var(--sumi2)}
+.sec{padding:8px 26px 18px}.sec h3{font-size:22px;margin-bottom:10px}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.tit{background:#efe4cc;border-radius:10px;padding:10px 14px;border-left:6px solid var(--enji)}
+.tit.lk{background:#e2dbcd;border-left-color:#bdb3a2;color:var(--usu)}
+.tit b{display:block;font-family:var(--mincho);font-size:18px}.tit span{font-size:13px}
+.news{background:#efe6d0;color:#2d2a26;padding:18px 22px;font-family:var(--mincho);border:1px solid #c4b190;box-shadow:inset 0 0 40px rgba(140,110,60,.15)}
+.news .mast{text-align:center;border-bottom:4px double #2d2a26;padding-bottom:8px}
+.news .mast h2{font-size:34px;letter-spacing:.15em}
+.news .mast div{font-size:13px;display:flex;justify-content:space-between}
+.news .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:12px}
+.news h4{margin:0 0 4px;font-size:19px;border-bottom:1px solid #8b8478;line-height:1.4}
+.news p{margin:0;font-family:"Zen Maru Gothic",sans-serif;font-size:15px;line-height:1.8}
+.news .you{margin-top:14px;border:2px solid var(--enji);padding:10px 14px;text-align:center}
+.news .you h4{border:0;color:var(--enji)}
+.repair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:24px;padding:22px 26px;align-items:center}
+@media(max-width:820px){.repair{grid-template-columns:1fr}}
+.repair svg{width:100%;max-width:320px;display:block;margin:0 auto}
+.nlist{margin:10px 0;padding-left:1.2em;font-size:15px;color:var(--sumi2);max-height:240px;overflow:auto}
+/* ---- 先生 ---- */
+#sTeacher{background:var(--washi)}
+#sTeacher .body{flex:1;overflow:auto;padding:16px 22px}
+table{border-collapse:collapse;width:100%;background:#f6f0e4;border-radius:12px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #e0d4bc;font-size:15px}
+th{background:var(--washi2);font-size:13px}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.tdet{margin-top:18px;background:#f6f0e4;border-radius:12px;padding:16px 20px}
+.tdet .row{justify-content:flex-start}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--usu)}.stack td:empty{display:none}}
+/* ---- トースト ---- */
+#toasts{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(560px,92vw)}
+.toast{background:rgba(29,26,28,.94);color:#f0e2c2;padding:10px 20px;border-radius:30px;font-size:16px;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,.3);animation:tin .3s ease-out;text-align:center;border:1px solid #6b5630}
+@keyframes tin{from{transform:translateY(-14px);opacity:0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style></head>
+<body>
+<section id="sProfile" class="scr on"><div class="pwrap">
+  <div class="logo" id="logo"></div>
+  <h1 class="ttl">歴史タイムトラベル<small>REKISHI TIME TRAVEL</small></h1>
+  <p id="pq" style="margin:0;font-size:18px"></p>
+  <div id="plist"></div>
+  <form class="pnew" id="pform"><input id="pname" maxlength="10" placeholder="新しい旅人の名前" autocomplete="off"><button class="btn main" type="submit" id="pnewbtn"></button></form>
+  <button class="thold" id="thold" type="button"><span id="tholdl"></span></button>
+</div></section>
+
+<section id="sHome" class="scr">
+  <header class="top"><h1>歴史タイムトラベル</h1>
+    <button class="tg" id="tgBgm">音楽</button><button class="tg" id="tgSe">効果音</button><button class="tg" id="tgFuri">ふりがな</button><button class="tg" id="tgWho">旅人をかえる</button></header>
+  <div id="pane"></div>
+  <nav class="tabs" id="tabs"></nav>
+</section>
+
+<section id="sWarp" class="scr"><canvas id="wcv"></canvas><div class="wy" id="wYear"></div><div class="wm" id="wMsg"></div><div id="wFlash"></div></section>
+
+<section id="sBoard" class="scr">
+  <header class="bhead"><button class="btn ghost" id="bBack"></button><h2 id="bTitle"></h2><span class="bp" id="bProg"></span></header>
+  <div class="bwrap"><svg id="board" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg><div class="bhint" id="bHint"></div></div>
+</section>
+
+<section id="sQuiz" class="scr">
+  <div class="qbg" id="qbg"></div>
+  <header class="qtop"><button class="btn ghost" id="qQuit"></button><div class="qtitle" id="qTitle"></div><div class="brush"><i id="qBar"></i></div><div class="qcount" id="qCount"></div></header>
+  <div class="qmain"><aside class="qnpc" id="qNpc"></aside>
+    <div class="qcol"><div class="paper" id="qPaper"><div class="qno" id="qNo"></div><div class="qtext" id="qText"></div><div class="qfig" id="qFig"></div><div class="stampbox" id="qStamp"></div></div>
+      <div id="qAns" class="qans"></div><div class="exp" id="qExp" hidden></div></div></div>
+  <footer class="hints" id="qHints"></footer>
+</section>
+
+<section id="sTeacher" class="scr">
+  <header class="bhead"><button class="btn ghost" id="tBack"></button><h2>先生モード</h2></header>
+  <div class="body" id="tBody"></div>
+</section>
+<div id="toasts"></div>
+<script>window.ERA_DATA={}</script>
+<script src="data/asuka.js"></script>
+<script src="data/nara.js"></script>
+<script src="data/heian.js"></script>
+<script src="data/kamakura.js"></script>
+<script src="data/muromachi.js"></script>
+<script src="data/sengoku.js"></script>
+<script src="data/edo.js"></script>
+<script src="data/meiji.js"></script>
+<script src="data/showa.js"></script>
+<script src="data/gendai.js"></script><script src="data/figs.js"></script>
+<script>
+{
+/* ================= 基本 ================= */
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const R=s=>String(s).replace(/([一-鿿々〆ヶ]+)\{([^}]+)\}/g,'<ruby>$1<rt>$2</rt></ruby>');
+const P=s=>String(s).replace(/\{[^}]+\}/g,'');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const shuf=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const KEY='rekishi-tt-v1';
+let D={profiles:[],cur:-1,set:{bgm:true,se:true,furi:true}};
+try{const s=localStorage.getItem(KEY);if(s){const o=JSON.parse(s);D=Object.assign(D,o);D.set=Object.assign({bgm:true,se:true,furi:true},o.set||{})}}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}};
+let me=null;
+const blank=n=>({name:n,pos:{},cleared:{},cards:{},placed:{},words:{},sites:{},nigate:[],st:{ans:0,ok:0},titles:{},ctitle:'',flags:{},news:{},rep:0,mapok:0,tok:0,tatsu:false,all:false,seen:{}});
+const fix=p=>{const b=blank(p.name);for(const k in b)if(p[k]===undefined)p[k]=b[k];return p};
+const show=id=>$$('.scr').forEach(s=>s.classList.toggle('on',s.id===id));
+
+/* ================= 音 ================= */
+const AU={ctx:null,cur:null,want:null,timer:null,drone:null,nb:null};
+function ac(){if(!AU.ctx){try{const c=AU.ctx=new(window.AudioContext||window.webkitAudioContext)();AU.m=c.createGain();AU.m.gain.value=.85;AU.m.connect(c.destination);AU.b=c.createGain();AU.b.gain.value=.34;AU.b.connect(AU.m);AU.s=c.createGain();AU.s.gain.value=.7;AU.s.connect(AU.m);
+ const d=c.createDelay();d.delayTime.value=.27;const fb=c.createGain();fb.gain.value=.3;const lp=c.createBiquadFilter();lp.frequency.value=1800;AU.b.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);lp.connect(AU.m);
+ const n=c.sampleRate*3;AU.nb=c.createBuffer(1,n,c.sampleRate);const x=AU.nb.getChannelData(0);for(let i=0;i<n;i++)x[i]=Math.random()*2-1}catch(e){AU.ctx=null}}
+ if(AU.ctx&&AU.ctx.state==='suspended')AU.ctx.resume();return AU.ctx}
+function tone(f,t,d,{type='sine',v=.2,a=.01,dest,vib=0,f2}={}){const c=AU.ctx,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+ if(vib){const l=c.createOscillator(),lg=c.createGain();l.frequency.value=5;lg.gain.value=vib;l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(t+d+.1)}
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+a);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(dest||AU.s);o.start(t);o.stop(t+d+.05)}
+function noise(t,d,{v=.2,f=1000,q=1,type='bandpass',dest}={}){const c=AU.ctx,s=c.createBufferSource();s.buffer=AU.nb;const fl=c.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=c.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(fl);fl.connect(g);g.connect(dest||AU.s);s.start(t,Math.random()*1.5,d+.05)}
+const pluck=(f,t,v,dest)=>{tone(f,t,1.3,{type:'triangle',v,a:.004,dest});tone(f*2,t,.4,{v:v*.35,a:.004,dest})};
+const flute=(f,t,d,v,dest)=>{tone(f,t,d,{v,a:.09,vib:5,dest});noise(t,Math.min(d,.25),{v:v*.25,f:f*2,q:3,dest})};
+const taiko=(t,v,dest)=>{tone(120,t,.55,{v,a:.004,f2:42,dest});noise(t,.09,{v:v*.35,f:260,dest})};
+const wood=(t,v,dest)=>noise(t,.05,{v,f:1700,q:7,dest});
+const N=n=>440*2**((n-69)/12);const sc=(root,steps)=>steps.map(x=>N(root+x));
+const YO=[0,2,5,7,9,12,14],IN=[0,1,5,7,8,12,13],RYU=[0,2,4,7,9,12,14],MAJ=[0,2,4,5,7,9,11,12,14],MIN=[0,2,3,5,7,8,10,12];
+const BG={
+ home:{tempo:56,sc:[293.66,311.13,392,440,466.16,587.33],inst:'pluck',drone:146.83,dr:[0,0,0,0,0,0,0,0],dens:.42},
+ jomon:{tempo:88,sc:[293.66,329.63,392,440,493.88,587.33],inst:'flute',drone:0,dr:[2,0,1,0,2,1,1,0],dens:.5},
+ asuka:{tempo:52,sc:sc(62,YO),inst:'sho',drone:N(50),dr:[0,0,0,0,0,0,0,0],dens:.5},
+ nara:{tempo:60,sc:sc(62,RYU),inst:'sho',drone:N(50),dr:[2,0,0,0,0,0,0,0],dens:.45},
+ heian:{tempo:66,sc:sc(64,IN),inst:'pluck',drone:0,dr:[0,0,0,0,0,0,0,0],dens:.6},
+ kamakura:{tempo:80,sc:sc(57,IN),inst:'flute',drone:N(45),dr:[2,0,0,1,2,0,0,0],dens:.4},
+ muromachi:{tempo:54,sc:sc(62,IN),inst:'flute',drone:0,dr:[1,0,0,0,0,0,0,0],dens:.3},
+ sengoku:{tempo:112,sc:sc(50,MIN),inst:'hora',drone:N(38),dr:[2,0,2,1,2,0,2,1],dens:.35},
+ edo:{tempo:120,sc:sc(64,YO),inst:'shami',drone:0,dr:[1,0,0,1,0,0,1,0],dens:.65},
+ meiji:{tempo:116,sc:sc(60,MAJ),inst:'march',drone:0,dr:[2,0,3,0,2,0,3,3],dens:.7},
+ showa:{tempo:72,sc:sc(57,MIN),inst:'piano',drone:0,dr:[0,0,0,0,0,0,0,0],dens:.55},
+ gendai:{tempo:96,sc:sc(60,MAJ),inst:'piano',drone:0,dr:[0,0,3,0,0,0,3,0],dens:.6},
+ boss:{tempo:74,sc:[146.83,155.56,196,220,233.08,293.66],inst:'flute',drone:73.42,dr:[2,0,0,2,0,0,2,1],dens:.33},
+ tatsu:{tempo:62,sc:[293.66,311.13,392,440,466.16,587.33,622.25],inst:'pluck',drone:146.83,dr:[0,0,0,0,1,0,0,0],dens:.55}};
+const snare=(t,v,dest)=>noise(t,.12,{v,f:2600,q:.8,type:'highpass',dest});
+function bgm(name){AU.want=name;if(AU.cur===name)return;stopBgm();AU.cur=null;if(!name||!D.set.bgm||!ac())return;const cfg=BG[name];if(!cfg)return;AU.cur=name;
+ const c=AU.ctx,dest=AU.b,sd=60/cfg.tempo/2;let t=c.currentTime+.15,step=0,idx=2,hold=0;
+ if(cfg.drone){const o=c.createOscillator(),g=c.createGain(),lp=c.createBiquadFilter();o.type='sawtooth';o.frequency.value=cfg.drone;lp.frequency.value=300;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.045,t+2);o.connect(lp);lp.connect(g);g.connect(dest);o.start(t);AU.drone={o,g}}
+ AU.timer=setInterval(()=>{while(t<c.currentTime+.3){const d=cfg.dr[step%8];if(d===2)taiko(t,.42,dest);else if(d===1)wood(t,.16,dest);else if(d===3)snare(t,.12,dest);
+  if(hold>0)hold--;else if(Math.random()<cfg.dens){idx=Math.max(0,Math.min(cfg.sc.length-1,idx+[-2,-1,-1,0,1,1,2][Math.random()*7|0]));const f=cfg.sc[idx],I=cfg.inst;
+   if(I==='pluck'){pluck(f,t,.12,dest);if(step%16===0)pluck(f/2,t,.08,dest)}
+   else if(I==='sho'){if(step%4===0){const len=4*sd*1.6;[0,7,12].forEach((x,k)=>tone(f*2**(x/12),t,len,{v:.035-k*.008,a:.5,dest}));hold=3}}
+   else if(I==='shami'){tone(f,t,.35,{type:'square',v:.03,a:.003,dest});tone(f*2,t,.18,{type:'triangle',v:.05,a:.003,dest})}
+   else if(I==='march'){tone(f,t,sd*.9,{type:'square',v:.03,a:.005,dest});if(step%4===0)tone(f/2,t,sd*1.8,{type:'triangle',v:.06,dest})}
+   else if(I==='piano'){tone(f,t,1.6,{type:'triangle',v:.1,a:.004,dest});tone(f*2,t,.8,{v:.03,a:.004,dest});if(step%8===0)[0,4,7].forEach(x=>tone(f/2*2**(x/12),t,2,{type:'triangle',v:.04,a:.01,dest}))}
+   else if(I==='hora'){const len=[2,3,4][Math.random()*3|0];tone(f,t,len*sd*1.1,{type:'sawtooth',v:.035,a:.12,vib:3,dest});hold=len-1}
+   else{const len=[1,2,2,3,4][Math.random()*5|0];flute(f*2,t,len*sd*1.15,.06,dest);hold=len-1}}
+  t+=sd;step++}},90)}
+function stopBgm(){clearInterval(AU.timer);AU.timer=null;if(AU.drone&&AU.ctx){try{const n=AU.ctx.currentTime;AU.drone.g.gain.cancelScheduledValues(n);AU.drone.g.gain.setValueAtTime(AU.drone.g.gain.value,n);AU.drone.g.gain.linearRampToValueAtTime(0,n+.5);AU.drone.o.stop(n+.6)}catch(e){}}AU.drone=null}
+const T=()=>AU.ctx.currentTime+.01;
+const SFX={
+ tap:()=>wood(T(),.22),
+ ok:()=>{const t=T();tone(988,t,.4,{v:.22});tone(1319,t+.14,.7,{v:.22})},
+ ng:()=>{const t=T();tone(247,t,.16,{type:'triangle',v:.2});tone(233,t+.19,.3,{type:'triangle',v:.18})},
+ step:()=>{const t=T();wood(t,.25);pluck(587,t+.02,.08)},
+ get:()=>{const t=T();[587,659,784,880,1175,1319].forEach((f,i)=>pluck(f,t+i*.08,.14))},
+ star:()=>{const t=T();[1175,1319,1568,1760,2349].forEach((f,i)=>tone(f,t+i*.06,.6,{v:.08}))},
+ stamp:()=>{const t=T();taiko(t,.35);pluck(784,t+.03,.1)},
+ snap:()=>{const t=T();noise(t,.03,{v:.4,f:3200,q:5});tone(1800,t,.04,{v:.05})},
+ warp:()=>{const t=T();tone(1000,t,3,{type:'sawtooth',v:.05,a:.4,f2:55});noise(t,3,{v:.14,f:700,q:.6});tone(220,t,3,{v:.08,a:1,f2:880})},
+ gong:()=>{const t=T();tone(92,t,4,{v:.4});tone(139,t,3.4,{v:.16});tone(197,t,2.6,{v:.08});noise(t,.25,{v:.22,f:380})},
+ clear:()=>{const t=T();[392,494,587,784].forEach((f,i)=>pluck(f,t+i*.12,.17));pluck(988,t+.55,.2);pluck(494,t+.55,.12)},
+ chime:()=>{const t=T();[784,1047,1319,1568].forEach((f,i)=>tone(f,t+i*.09,1.4,{v:.09}))},
+ broke:()=>{const t=T();for(let i=0;i<6;i++)noise(t+i*.09,.07,{v:.3,f:500+Math.random()*900,q:3});tone(180,t,.8,{type:'square',v:.04,f2:60})}};
+function sfx(n){if(!D.set.se||!ac())return;try{SFX[n]()}catch(e){}}
+
+/* ================= データ ================= */
+const ERAS=[
+ {id:'jomon',name:'縄文{じょうもん}・弥生{やよい}',year:-4000,lb:'約{やく}1万{まん}年前{ねんまえ}〜3世紀{せいき}',ready:true,col:'#6f7e4c',gl:'縄'},
+ {id:'asuka',name:'古墳{こふん}・飛鳥{あすか}',year:593,lb:'3〜7世紀{せいき}',col:'#7a6a4f',gl:'飛'},
+ {id:'nara',name:'奈良{なら}',year:752,lb:'8世紀{せいき}',col:'#5d6f86',gl:'奈'},
+ {id:'heian',name:'平安{へいあん}',year:1016,lb:'8〜12世紀{せいき}',col:'#8a5a6a',gl:'平'},
+ {id:'kamakura',name:'鎌倉{かまくら}',year:1192,lb:'12〜14世紀{せいき}',col:'#5a6b5a',gl:'鎌'},
+ {id:'muromachi',name:'室町{むろまち}',year:1397,lb:'14〜16世紀{せいき}',col:'#6b6a7a',gl:'室'},
+ {id:'sengoku',name:'戦国{せんごく}・安土桃山{あづちももやま}',year:1575,lb:'16世紀{せいき}',col:'#8c4a3d',gl:'戦'},
+ {id:'edo',name:'江戸{えど}',year:1603,lb:'1603〜1867年{ねん}',col:'#3e5b74',gl:'江'},
+ {id:'meiji',name:'明治{めいじ}',year:1889,lb:'1868〜1912年{ねん}',col:'#6a5040',gl:'明'},
+ {id:'showa',name:'大正{たいしょう}〜昭和{しょうわ}',year:1925,lb:'1912〜1945年{ねん}',col:'#55606a',gl:'昭'},
+ {id:'gendai',name:'戦後{せんご}〜現代{げんだい}',year:1964,lb:'1945年{ねん}〜',col:'#4f7378',gl:'現'}];
+const eraLabel=e=>e.name+(P(e.name).includes('〜')?'':'時代{じだい}');
+const fmtY=y=>y>0?`${y}年{ねん}`:`紀元前{きげんぜん}${Math.max(1,-y)}年{ねん}`;
+
+const SITES={
+ sannai:{n:'三内丸山{さんないまるやま}遺跡{いせき}',pf:'青森県{あおもりけん}',ll:[140.70,40.81],d:'縄文{じょうもん}時代{じだい}の大{おお}きなむらのあと。大{おお}きな柱{はしら}のあとや、たくさんのたて穴{あな}住居{じゅうきょ}が見{み}つかった。'},
+ omori:{n:'大森{おおもり}貝塚{かいづか}',pf:'東京都{とうきょうと}',ll:[139.73,35.59],d:'1877年{ねん}にモースが発見{はっけん}した貝塚{かいづか}。日本{にほん}の考古学{こうこがく}の始{はじ}まりの地{ち}といわれる。'},
+ iwajuku:{n:'岩宿{いわじゅく}遺跡{いせき}',pf:'群馬県{ぐんまけん}',ll:[139.29,36.40],d:'相沢{あいざわ}忠洋{ただひろ}が打製{だせい}石器{せっき}を見{み}つけ、縄文{じょうもん}時代{じだい}より前{まえ}の旧石器{きゅうせっき}時代{じだい}があったことがわかった。'},
+ toro:{n:'登呂{とろ}遺跡{いせき}',pf:'静岡県{しずおかけん}',ll:[138.40,34.96],d:'弥生{やよい}時代{じだい}のむらのあと。水田{すいでん}・たて穴{あな}住居{じゅうきょ}・高床{たかゆか}倉庫{そうこ}のあとが見{み}つかった。'},
+ yoshino:{n:'吉野{よしの}ヶ里{がり}遺跡{いせき}',pf:'佐賀県{さがけん}',ll:[130.38,33.33],d:'弥生{やよい}時代{じだい}の大{おお}きなむら。堀{ほり}とさくで囲{かこ}まれ、物見{ものみ}やぐらがあった。'},
+ shika:{n:'志賀島{しかのしま}',pf:'福岡県{ふくおかけん}',ll:[130.30,33.67],d:'江戸{えど}時代{じだい}に、農民{のうみん}が田{た}んぼのみぞから金印{きんいん}を見{み}つけた島{しま}。'}};
+
+const WORDS={
+ jomon:['縄文{じょうもん}時代{じだい}','1万{まん}年{ねん}以上{いじょう}前{まえ}から長{なが}く続{つづ}いた時代{じだい}。狩{か}りや漁{りょう}、木{き}の実{み}の採集{さいしゅう}でくらし、縄文{じょうもん}土器{どき}を使{つか}った。'],
+ yayoi:['弥生{やよい}時代{じだい}','米{こめ}づくりが広{ひろ}まった時代{じだい}。むらが大{おお}きくなり、くにが生{う}まれた。'],
+ kyuseki:['旧石器{きゅうせっき}時代{じだい}','土器{どき}がまだなく、打製{だせい}石器{せっき}を使{つか}っていた、縄文{じょうもん}時代{じだい}より前{まえ}の時代{じだい}。'],
+ tateana:['たて穴{あな}住居{じゅうきょ}','地面{じめん}をほり下{さ}げて柱{はしら}を立{た}て、草{くさ}などで屋根{やね}をふいた家{いえ}。'],
+ kaizuka:['貝塚{かいづか}','貝{かい}がらや骨{ほね}、こわれた土器{どき}などを捨{す}てた場所{ばしょ}。当時{とうじ}のくらしがわかる。'],
+ jdoki:['縄文{じょうもん}土器{どき}','縄{なわ}を転{ころ}がしたもようのある、厚{あつ}くてごつごつした土器{どき}。'],
+ dogu:['土偶{どぐう}','土{つち}で作{つく}った人形{にんぎょう}。豊{ゆた}かなめぐみや安全{あんぜん}をいのって作{つく}られたと考{かんが}えられている。'],
+ ydoki:['弥生{やよい}土器{どき}','うすくてかたく、もようが少{すく}ない土器{どき}。東京{とうきょう}の弥生町{やよいちょう}で見{み}つかった。'],
+ sannai:['三内丸山{さんないまるやま}遺跡{いせき}','青森県{あおもりけん}にある縄文{じょうもん}時代{じだい}の大{おお}きなむらのあと。'],
+ omori:['大森{おおもり}貝塚{かいづか}','モースが発見{はっけん}した東京{とうきょう}の貝塚{かいづか}。'],
+ iwajuku:['岩宿{いわじゅく}遺跡{いせき}','相沢{あいざわ}忠洋{ただひろ}が発見{はっけん}した群馬県{ぐんまけん}の遺跡{いせき}。'],
+ inasaku:['稲作{いなさく}','米{こめ}づくりのこと。大陸{たいりく}から九州{きゅうしゅう}北部{ほくぶ}に伝{つた}わり、各地{かくち}へ広{ひろ}がった。'],
+ ishibo:['石包丁{いしぼうちょう}','稲{いね}の穂{ほ}をつみとる石{いし}の道具{どうぐ}。'],
+ takayuka:['高床{たかゆか}倉庫{そうこ}','床{ゆか}を高{たか}くして、湿気{しっけ}やネズミから米{こめ}を守{まも}った倉庫{そうこ}。'],
+ kinzoku:['青銅器{せいどうき}・鉄器{てっき}','大陸{たいりく}から伝{つた}わった金属器{きんぞくき}。青銅器{せいどうき}は主{おも}にまつり、鉄器{てっき}は農具{のうぐ}や武器{ぶき}に使{つか}われた。'],
+ dotaku:['銅鐸{どうたく}','米{こめ}の豊作{ほうさく}をいのるまつりに使{つか}われたと考{かんが}えられる青銅器{せいどうき}。'],
+ toro:['登呂{とろ}遺跡{いせき}','静岡県{しずおかけん}にある弥生{やよい}時代{じだい}のむらと水田{すいでん}のあと。'],
+ yoshino:['吉野{よしの}ヶ里{がり}遺跡{いせき}','佐賀県{さがけん}にある弥生{やよい}時代{じだい}の大{おお}きなむら。堀{ほり}とさくで囲{かこ}まれていた。'],
+ mura:['むら','人々{ひとびと}が集{あつ}まってくらす集落{しゅうらく}。米{こめ}づくりで大{おお}きくなった。'],
+ kuni:['くに','強{つよ}いむらがまわりのむらをまとめてできた、小{ちい}さな国{くに}。'],
+ kinin:['金印{きんいん}','57年{ねん}に奴国{なこく}の王{おう}が中国{ちゅうごく}の漢{かん}の皇帝{こうてい}からさずかった金{きん}のはんこ。'],
+ yamatai:['邪馬台国{やまたいこく}','卑弥呼{ひみこ}が女王{じょおう}として治{おさ}めた国{くに}。30ほどのくにを従{したが}えた。'],
+ gishi:['魏志倭人伝{ぎしわじんでん}','卑弥呼{ひみこ}や邪馬台国{やまたいこく}のことが書{か}かれた中国{ちゅうごく}の歴史書{れきししょ}。']};
+
+const CARDS={
+ morse:{name:'モース',look:'morse',r:1,era:'meiji',title:'大森{おおもり}貝塚{かいづか}を発見{はっけん}した学者{がくしゃ}',line:'汽車{きしゃ}の窓{まど}から、貝{かい}がらの層{そう}が見{み}えたのです！',hint:'よく観察{かんさつ}するのが、学問{がくもん}の第一歩{だいいっぽ}です。',
+  back:['アメリカの動物{どうぶつ}学者{がくしゃ}。明治{めいじ}時代{じだい}に日本{にほん}へ来{き}た。','1877年{ねん}、汽車{きしゃ}の窓{まど}から見{み}えたがけをきっかけに大森{おおもり}貝塚{かいづか}を発見{はっけん}。','発掘{はっくつ}の記録{きろく}を本{ほん}にまとめ、科学的{かがくてき}な調{しら}べ方{かた}を日本{にほん}に伝{つた}えた。']},
+ aizawa:{name:'相沢{あいざわ}忠洋{ただひろ}',look:'aizawa',r:1,era:'gendai',title:'岩宿{いわじゅく}遺跡{いせき}を見{み}つけた青年{せいねん}',line:'赤土{あかつち}の中{なか}から、石器{せっき}が出{で}てきたんだ！',hint:'あきらめずに探{さが}せば、きっと見{み}つかるよ。',
+  back:['行商{ぎょうしょう}をしながら、こつこつ石器{せっき}を探{さが}し続{つづ}けた。','戦後{せんご}の1946年{ねん}ごろ、群馬県{ぐんまけん}の岩宿{いわじゅく}で打製{だせい}石器{せっき}を発見{はっけん}。','日本{にほん}にも旧石器{きゅうせっき}時代{じだい}があったことを明{あき}らかにした。']},
+ nakoku:{name:'奴国{なこく}の王{おう}',look:'nakoku',r:2,era:'jomon',title:'金印{きんいん}をさずかった王{おう}',line:'漢{かん}の皇帝{こうてい}から、金印{きんいん}をいただいたのだ。',hint:'わしが、ちがう答{こた}えを1つ消{け}してやろう。',
+  back:['今{いま}の福岡市{ふくおかし}あたりにあったくにの王{おう}と考{かんが}えられている。','57年{ねん}、中国{ちゅうごく}の漢{かん}に使{つか}いを送{おく}り、金印{きんいん}をさずかった。','金印{きんいん}は江戸{えど}時代{じだい}に志賀島{しかのしま}で見{み}つかり、今{いま}は国宝{こくほう}。']},
+ himiko:{name:'卑弥呼{ひみこ}',look:'himiko',r:3,era:'jomon',title:'邪馬台国{やまたいこく}の女王{じょおう}',line:'神{かみ}のお告{つ}げを、そなたにも聞{き}かせよう。',hint:'神{かみ}のお告{つ}げじゃ…これはちがうぞ。',
+  back:['30ほどのくにを従{したが}えた邪馬台国{やまたいこく}の女王{じょおう}。','うらないやまじないで政治{せいじ}を行{おこな}い、弟{おとうと}が国{くに}の政治{せいじ}を助{たす}けた。','239年{ねん}、魏{ぎ}に使{つか}いを送{おく}り「親魏倭王{しんぎわおう}」の称号{しょうごう}と銅鏡{どうきょう}をさずかった。']},
+ himikoG:{name:'卑弥呼{ひみこ}・金{きん}',look:'himiko',r:3,gold:1,era:'jomon',title:'達人{たつじん}の証{あかし}',line:'見事{みごと}じゃ、達人{たつじん}よ。',hint:'達人{たつじん}なら、もうわかるはずじゃ。',
+  back:['達人{たつじん}の間{ま}で全問{ぜんもん}正解{せいかい}した者{もの}だけが手{て}にする札{ふだ}。','『魏志倭人伝{ぎしわじんでん}』には、卑弥呼{ひみこ}の宮殿{きゅうでん}が物見{ものみ}やぐらやさくで守{まも}られていたと書{か}かれている。','卑弥呼{ひみこ}の死後{しご}は大{おお}きな墓{はか}がつくられ、そのあと少女{しょうじょ}の壱与{いよ}が女王{じょおう}となった。']}};
+const star=xp=>xp>=6?3:xp>=3?2:1;
+
+const NPC={
+ tsuchi:{n:'ツチ（縄文{じょうもん}の子{こ}ども）',look:'kid'},
+ ine:{n:'イネ（弥生{やよい}の村人{むらびと}）',look:'farmer'},
+ jii:{n:'土{つち}じい（遺跡{いせき}の番人{ばんにん}）',look:'elder'},
+ okina:{n:'時{とき}の翁{おきな}',look:'elder'}};
+
+/* ---- 問題（正解は o[0]。表示時にまぜる） ---- */
+const POOL={
+ A:[
+ {id:'a1',t:'c',q:'縄文{じょうもん}時代{じだい}の人々{ひとびと}は、主{おも}にどのようにして食{た}べ物{もの}を手{て}に入{い}れていた？',o:['狩{か}りや漁{りょう}、木{き}の実{み}を集{あつ}めること','田{た}んぼで米{こめ}を育{そだ}てること','市場{いちば}でお金{かね}を出{だ}して買{か}うこと','牛{うし}や馬{うま}をたくさん育{そだ}てること'],e:'縄文{じょうもん}時代{じだい}の人々{ひとびと}は、けものをとる狩{か}り、魚{さかな}や貝{かい}をとる漁{りょう}、木{き}の実{み}や山菜{さんさい}を集{あつ}める採集{さいしゅう}でくらしていました。米{こめ}づくりが広{ひろ}がるのは弥生{やよい}時代{じだい}からです。',w:['jomon']},
+ {id:'a2',t:'c',q:'縄文{じょうもん}時代{じだい}の人々{ひとびと}が住{す}んでいた家{いえ}を何{なん}という？',o:['たて穴{あな}住居{じゅうきょ}','高床{たかゆか}倉庫{そうこ}','寝殿造{しんでんづくり}','書院造{しょいんづくり}'],e:'地面{じめん}をほり下{さ}げて柱{はしら}を立{た}て、草{くさ}などで屋根{やね}をふいた家{いえ}です。中{なか}で火{ひ}をたき、家族{かぞく}でくらしました。',w:['tateana']},
+ {id:'a3',t:'tf',q:'貝塚{かいづか}は、縄文{じょうもん}時代{じだい}の人々{ひとびと}がごみを捨{す}てた場所{ばしょ}のあとである。',a:1,e:'貝{かい}がらや動物{どうぶつ}の骨{ほね}、こわれた土器{どき}などが積{つ}もった場所{ばしょ}です。何{なに}を食{た}べていたかなど、当時{とうじ}のくらしがわかります。',w:['kaizuka'],h:'「貝{かい}」の「塚{つか}（山{やま}）」と書{か}くよ。'},
+ {id:'a4',t:'c',q:'三内丸山{さんないまるやま}遺跡{いせき}は、今{いま}の何県{なにけん}にある？',o:['青森県{あおもりけん}','佐賀県{さがけん}','静岡県{しずおかけん}','京都府{きょうとふ}'],e:'青森県{あおもりけん}にある、日本{にほん}最大級{さいだいきゅう}の縄文{じょうもん}時代{じだい}のむらのあとです。大{おお}きな柱{はしら}のあとや、たくさんのたて穴{あな}住居{じゅうきょ}が見{み}つかっています。',w:['sannai']},
+ {id:'a5',t:'tf',q:'縄文{じょうもん}時代{じだい}には、むらどうしの大{おお}きな争{あらそ}いがたくさん起{お}きていた。',a:0,e:'縄文{じょうもん}時代{じだい}は、身分{みぶん}の差{さ}や大{おお}きな争{あらそ}いはあまりなかったと考{かんが}えられています。争{あらそ}いが増{ふ}えたのは、米{こめ}をたくわえるようになった弥生{やよい}時代{じだい}からです。',h:'米{こめ}をたくわえるようになったのは、もっと後{あと}だよ。'},
+ {id:'a6',t:'c',q:'縄文{じょうもん}時代{じだい}の人々{ひとびと}が、シカやイノシシをとるのに使{つか}った道具{どうぐ}は？',o:['弓矢{ゆみや}','鉄砲{てっぽう}','石包丁{いしぼうちょう}','鉄{てつ}のくわ'],e:'弓矢{ゆみや}を使{つか}って、シカやイノシシなどをとっていました。石包丁{いしぼうちょう}は弥生{やよい}時代{じだい}に稲{いね}の穂{ほ}をかりとる道具{どうぐ}、鉄砲{てっぽう}は戦国{せんごく}時代{じだい}に伝{つた}わったものです。'},
+ {id:'a7',t:'c',q:'縄文{じょうもん}時代{じだい}が始{はじ}まったのは、今{いま}からどれくらい前{まえ}？',o:['1万{まん}年{ねん}以上{いじょう}前{まえ}','約{やく}2000年前{ねんまえ}','約{やく}500年前{ねんまえ}','約{やく}100年前{ねんまえ}'],e:'縄文{じょうもん}時代{じだい}は1万{まん}年{ねん}以上{いじょう}前{まえ}に始{はじ}まり、1万{まん}年{ねん}ほども続{つづ}いた、とても長{なが}い時代{じだい}です。',w:['jomon']}],
+ B:[
+ {id:'b1',t:'pic',pic:'jdoki',q:'この土器{どき}を何{なん}という？',o:['縄文{じょうもん}土器{どき}','弥生{やよい}土器{どき}','はにわ','土偶{どぐう}'],e:'縄文{じょうもん}土器{どき}は、縄{なわ}を転{ころ}がしたもようがあることから名{な}づけられました。写真{しゃしん}は、ほのおのようなかざりがついた「火焔型{かえんがた}土器{どき}」で、縄文{じょうもん}土器{どき}の代表{だいひょう}です。おこげのあとがあるものもあり、にたきに使{つか}われました。',w:['jdoki']},
+ {id:'b2',t:'pic',pic:'dogu',q:'この人形{にんぎょう}のような焼{や}き物{もの}は何{なん}？',o:['土偶{どぐう}','はにわ','銅鐸{どうたく}','金印{きんいん}'],e:'写真{しゃしん}は「遮光器{しゃこうき}土偶{どぐう}」。大{おお}きな目{め}が雪{ゆき}めがね（遮光器{しゃこうき}）に見{み}えることから名{な}づけられました。土偶{どぐう}は土{つち}で作{つく}った人形{にんぎょう}です。自然{しぜん}のめぐみや、安全{あんぜん}・安産{あんざん}をいのるために作{つく}られたと考{かんが}えられています。はにわは古墳{こふん}時代{じだい}のものです。',w:['dogu']},
+ {id:'b3',t:'c',fig:'jdoki',q:'【今{いま}と昔{むかし}くらべ】縄文{じょうもん}土器{どき}は、今{いま}のくらしでいうと何{なに}にあたる？',o:['なべや保存{ほぞん}容器{ようき}','電話{でんわ}','時計{とけい}','自転車{じてんしゃ}'],e:'縄文{じょうもん}土器{どき}で木{き}の実{み}や貝{かい}をにたり、食{た}べ物{もの}をたくわえたりしました。土器{どき}のおかげで、にて食{た}べられるものがぐんと増{ふ}えました。'},
+ {id:'b4',t:'tf',q:'縄文{じょうもん}土器{どき}の名前{なまえ}は、縄{なわ}を転{ころ}がしてつけたもようからきている。',a:1,e:'そのとおり。「縄{なわ}の文様{もんよう}（もよう）」で縄文{じょうもん}です。時代{じだい}の名前{なまえ}も、この土器{どき}からつけられました。',w:['jdoki'],h:'「縄文{じょうもん}」の漢字{かんじ}をよく見{み}てごらん。'},
+ {id:'b5',t:'c',q:'【今{いま}と昔{むかし}くらべ】縄文{じょうもん}時代{じだい}に、今{いま}の冷蔵庫{れいぞうこ}のように木{き}の実{み}をたくわえたのは？',o:['地面{じめん}にほった穴{あな}','高床{たかゆか}倉庫{そうこ}','電気{でんき}で冷{ひ}やす箱{はこ}','土偶{どぐう}の中{なか}'],e:'地面{じめん}にほった穴{あな}（貯蔵穴{ちょぞうけつ}）に、ドングリなどの木{き}の実{み}をたくわえていました。高床{たかゆか}倉庫{そうこ}は、弥生{やよい}時代{じだい}に米{こめ}をたくわえた建物{たてもの}です。'},
+ {id:'b6',t:'pic',pic:'ydoki',q:'この土器{どき}を何{なん}という？',o:['弥生{やよい}土器{どき}','縄文{じょうもん}土器{どき}','土偶{どぐう}','銅鐸{どうたく}'],e:'弥生{やよい}土器{どき}はうすくてかたく、もようが少{すく}ないのが特{とく}ちょうです。東京{とうきょう}の弥生町{やよいちょう}で見{み}つかったので、この名前{なまえ}がつきました。',w:['ydoki']}],
+ C:[
+ {id:'c1',t:'c',q:'明治{めいじ}時代{じだい}に大森{おおもり}貝塚{かいづか}を発見{はっけん}したアメリカ人{じん}は？',o:['モース','ペリー','ザビエル','マッカーサー'],e:'アメリカの動物{どうぶつ}学者{がくしゃ}モースが、汽車{きしゃ}の窓{まど}から貝{かい}がらの層{そう}を見{み}つけたことがきっかけで、1877年{ねん}に大森{おおもり}貝塚{かいづか}を発見{はっけん}しました。',p:'morse',w:['omori']},
+ {id:'c2',t:'map',q:'大森{おおもり}貝塚{かいづか}がある場所{ばしょ}はどこ？',s:['omori','sannai','yoshino','toro'],e:'大森{おおもり}貝塚{かいづか}は今{いま}の東京都{とうきょうと}にあります。日本{にほん}の考古学{こうこがく}の始{はじ}まりの場所{ばしょ}といわれています。',p:'morse',w:['omori']},
+ {id:'c3',t:'tf',q:'貝塚{かいづか}からは、貝{かい}がらだけでなく、動物{どうぶつ}の骨{ほね}や土器{どき}のかけらも見{み}つかる。',a:1,e:'貝塚{かいづか}からは、魚{さかな}やけものの骨{ほね}、こわれた土器{どき}、骨{ほね}で作{つく}った道具{どうぐ}なども見{み}つかります。',p:'morse',w:['kaizuka'],h:'ごみ捨{す}て場{ば}だから、いろいろなものが捨{す}てられたよ。'},
+ {id:'c4',t:'c',q:'貝塚{かいづか}が、今{いま}の海岸{かいがん}から遠{とお}い場所{ばしょ}で見{み}つかることがあるのはなぜ？',o:['昔{むかし}は今{いま}より海{うみ}が陸{りく}の奥{おく}まで入{はい}りこんでいたから','人{ひと}が貝{かい}を遠{とお}くまで運{はこ}ぶ遊{あそ}びをしたから','鳥{とり}が貝{かい}を運{はこ}んだから','大雨{おおあめ}で貝{かい}が流{なが}されたから'],e:'縄文{じょうもん}時代{じだい}のある時期{じき}は今{いま}より暖{あたた}かく、海面{かいめん}が高{たか}かったため、海岸線{かいがんせん}が今{いま}よりずっと陸{りく}の奥{おく}にありました。',p:'morse'},
+ {id:'c5',t:'pair',q:'人物{じんぶつ}と、その人{ひと}が発見{はっけん}したものを結{むす}ぼう',pr:[['モース','大森{おおもり}貝塚{かいづか}'],['相沢{あいざわ}忠洋{ただひろ}','岩宿{いわじゅく}遺跡{いせき}'],['志賀島{しかのしま}の農民{のうみん}','金印{きんいん}']],e:'モースは東京{とうきょう}の大森{おおもり}貝塚{かいづか}、相沢{あいざわ}忠洋{ただひろ}は群馬{ぐんま}の岩宿{いわじゅく}遺跡{いせき}、そして江戸{えど}時代{じだい}の志賀島{しかのしま}（福岡{ふくおか}）の農民{のうみん}が金印{きんいん}を見{み}つけました。',p:'morse'},
+ {id:'c6',t:'c',q:'モースが大森{おおもり}貝塚{かいづか}を見{み}つけたきっかけは？',o:['汽車{きしゃ}の窓{まど}から見{み}えたがけ','夢{ゆめ}のお告{つ}げ','古{ふる}い宝{たから}の地図{ちず}','犬{いぬ}がほり当{あ}てたこと'],e:'横浜{よこはま}から東京{とうきょう}へ向{む}かう汽車{きしゃ}の窓{まど}から、がけに貝{かい}がらの層{そう}があるのを見{み}つけたのがきっかけです。',p:'morse'}],
+ D:[
+ {id:'d1',t:'order',q:'古{ふる}い順{じゅん}にならべよう',it:['旧石器{きゅうせっき}時代{じだい}','縄文{じょうもん}時代{じだい}','弥生{やよい}時代{じだい}','古墳{こふん}時代{じだい}'],e:'土器{どき}のない旧石器{きゅうせっき}時代{じだい}→縄文{じょうもん}土器{どき}の縄文{じょうもん}時代{じだい}→米{こめ}づくりの弥生{やよい}時代{じだい}→大{おお}きな墓{はか}がつくられた古墳{こふん}時代{じだい}の順{じゅん}です。',w:['kyuseki','jomon','yayoi']},
+ {id:'d2',t:'order',q:'米{こめ}づくりが伝{つた}わってからの流{なが}れを、順{じゅん}にならべよう',it:['大陸{たいりく}から米{こめ}づくりが伝{つた}わる','むらに米{こめ}がたくわえられる','米{こめ}や土地{とち}をめぐって争{あらそ}いが起{お}こる','強{つよ}いむらが小{ちい}さなくにをつくる'],e:'米{こめ}がたくわえられるようになると、米{こめ}や土地{とち}、水{みず}をめぐって争{あらそ}いが起{お}こり、勝{か}ったむらがまわりをまとめて「くに」ができていきました。',w:['inasaku','mura','kuni']},
+ {id:'d3',t:'order',q:'使{つか}われはじめた順{じゅん}にならべよう',it:['打製{だせい}石器{せっき}','縄文{じょうもん}土器{どき}','弥生{やよい}土器{どき}','はにわ'],e:'打製{だせい}石器{せっき}（旧石器{きゅうせっき}時代{じだい}）→縄文{じょうもん}土器{どき}→弥生{やよい}土器{どき}→はにわ（古墳{こふん}時代{じだい}）の順{じゅん}です。'},
+ {id:'d4',t:'pair',q:'年号{ねんごう}とできごとを結{むす}ぼう',pr:[['57年{ねん}','奴国{なこく}の王{おう}が金印{きんいん}をさずかる'],['239年{ねん}','卑弥呼{ひみこ}が魏{ぎ}に使{つか}いを送{おく}る'],['1877年{ねん}','モースが大森{おおもり}貝塚{かいづか}を発見{はっけん}']],e:'57年{ねん}に奴国{なこく}の王{おう}が金印{きんいん}、239年{ねん}に卑弥呼{ひみこ}が魏{ぎ}へ使{つか}い。モースの発見{はっけん}は、ずっと後{あと}の明治{めいじ}時代{じだい}の1877年{ねん}です。'},
+ {id:'d5',t:'order',q:'卑弥呼{ひみこ}に関係{かんけい}するできごとを、順{じゅん}にならべよう',it:['くにどうしの争{あらそ}いが続{つづ}く','卑弥呼{ひみこ}が女王{じょおう}にえらばれる','卑弥呼{ひみこ}が魏{ぎ}に使{つか}いを送{おく}る'],e:'争{あらそ}いが長{なが}く続{つづ}いたあと、くにぐにが卑弥呼{ひみこ}を女王{じょおう}に立{た}てたことで争{あらそ}いがおさまりました。その後{ご}、239年{ねん}に魏{ぎ}へ使{つか}いを送{おく}りました。',p:'himiko'},
+ {id:'d6',t:'pair',q:'時代{じだい}と、その時代{じだい}を代表{だいひょう}するものを結{むす}ぼう',pr:[['縄文{じょうもん}時代{じだい}','土偶{どぐう}'],['弥生{やよい}時代{じだい}','石包丁{いしぼうちょう}'],['古墳{こふん}時代{じだい}','はにわ']],e:'土偶{どぐう}は縄文{じょうもん}時代{じだい}、石包丁{いしぼうちょう}は米{こめ}づくりの弥生{やよい}時代{じだい}、はにわは古墳{こふん}のまわりに並{なら}べられた古墳{こふん}時代{じだい}のものです。'}],
+ E:[
+ {id:'e1',t:'c',q:'米{こめ}づくりは、どこから日本{にほん}に伝{つた}わった？',o:['中国{ちゅうごく}や朝鮮{ちょうせん}半島{はんとう}','アメリカ','ヨーロッパ','オーストラリア'],e:'大陸{たいりく}（中国{ちゅうごく}や朝鮮{ちょうせん}半島{はんとう}）から九州{きゅうしゅう}北部{ほくぶ}に伝{つた}わり、やがて各地{かくち}に広{ひろ}がりました。',w:['inasaku','yayoi']},
+ {id:'e2',t:'pic',pic:'ishibo',q:'この道具{どうぐ}は、何{なに}に使{つか}った？',o:['稲{いね}の穂{ほ}をつみとる','魚{さかな}をつる','木{き}を切{き}りたおす','火{ひ}をおこす'],e:'石包丁{いしぼうちょう}です。2つの穴{あな}にひもを通{とお}して指{ゆび}にかけ、実{みの}った稲{いね}の穂先{ほさき}をつみとりました。',w:['ishibo']},
+ {id:'e3',t:'pic',pic:'kura',q:'この建物{たてもの}を何{なん}という？',o:['高床{たかゆか}倉庫{そうこ}','たて穴{あな}住居{じゅうきょ}','古墳{こふん}','お寺{てら}'],e:'床{ゆか}を高{たか}くして、湿気{しっけ}やネズミから米{こめ}を守{まも}りました。柱{はしら}には「ネズミ返{がえ}し」という板{いた}もついていました。',w:['takayuka']},
+ {id:'e4',t:'c',q:'米{こめ}づくりが始{はじ}まって、人々{ひとびと}のくらしはどう変{か}わった？',o:['田{た}のそばに住{す}みつき、むらが大{おお}きくなった','毎日{まいにち}あちこち移動{いどう}するようになった','食{た}べ物{もの}がたくわえられなくなった','家{いえ}に住{す}まなくなった'],e:'田{た}のそばに定住{ていじゅう}し、米{こめ}をたくわえられるようになって、むらが大{おお}きくなりました。共同{きょうどう}で作業{さぎょう}するため、むらをまとめる人{ひと}も現{あらわ}れました。',w:['mura']},
+ {id:'e5',t:'tf',q:'米{こめ}づくりが広{ひろ}がると、たくわえた米{こめ}や土地{とち}をめぐって、むらどうしの争{あらそ}いが起{お}こるようになった。',a:1,e:'そのとおり。米{こめ}や土地{とち}、水{みず}をめぐって争{あらそ}いが起{お}こり、むらのまわりを堀{ほり}やさくで囲{かこ}むようになりました。',h:'たくわえがあると、それをうばおうとする人{ひと}も…。'},
+ {id:'e6',t:'c',q:'弥生{やよい}時代{じだい}に大陸{たいりく}から伝{つた}わった、金属{きんぞく}でできた道具{どうぐ}は？',o:['青銅器{せいどうき}や鉄器{てっき}','プラスチックの道具{どうぐ}','ガラスのコップ','紙{かみ}のふくろ'],e:'青銅器{せいどうき}（銅鐸{どうたく}・銅剣{どうけん}など）は主{おも}にまつりに、鉄器{てっき}は農具{のうぐ}や武器{ぶき}に使{つか}われました。',w:['kinzoku']},
+ {id:'e7',t:'pic',pic:'dotaku',q:'この青銅器{せいどうき}を何{なん}という？',o:['銅鐸{どうたく}','土偶{どぐう}','金印{きんいん}','はにわ'],e:'銅鐸{どうたく}は、米{こめ}の豊作{ほうさく}をいのるまつりに使{つか}われたと考{かんが}えられています。表面{ひょうめん}に、米{こめ}づくりや狩{か}りの様子{ようす}がえがかれたものもあります。',w:['dotaku','kinzoku']}],
+ F:[
+ {id:'f1',t:'map',q:'吉野{よしの}ヶ里{がり}遺跡{いせき}はどこ？',s:['yoshino','sannai','toro','iwajuku'],e:'佐賀県{さがけん}にある弥生{やよい}時代{じだい}の大{おお}きなむらのあとです。まわりを堀{ほり}やさくで囲{かこ}み、物見{ものみ}やぐらがありました。',w:['yoshino']},
+ {id:'f2',t:'map',q:'三内丸山{さんないまるやま}遺跡{いせき}はどこ？',s:['sannai','omori','yoshino','toro'],e:'青森県{あおもりけん}にある縄文{じょうもん}時代{じだい}の大{おお}きなむらのあとです。本州{ほんしゅう}のいちばん北{きた}の県{けん}ですね。',w:['sannai']},
+ {id:'f3',t:'map',q:'登呂{とろ}遺跡{いせき}はどこ？',s:['toro','sannai','shika','iwajuku'],e:'静岡県{しずおかけん}にある弥生{やよい}時代{じだい}のむらのあとで、水田{すいでん}やたて穴{あな}住居{じゅうきょ}、高床{たかゆか}倉庫{そうこ}のあとが見{み}つかっています。',w:['toro']},
+ {id:'f4',t:'map',q:'相沢{あいざわ}忠洋{ただひろ}が石器{せっき}を見{み}つけた岩宿{いわじゅく}遺跡{いせき}はどこ？',s:['iwajuku','yoshino','toro','sannai'],e:'群馬県{ぐんまけん}にあります。ここで見{み}つかった打製{だせい}石器{せっき}から、日本{にほん}にも縄文{じょうもん}時代{じだい}より前{まえ}（旧石器{きゅうせっき}時代{じだい}）に人{ひと}が住{す}んでいたことがわかりました。',p:'aizawa',w:['iwajuku','kyuseki']},
+ {id:'f5',t:'c',q:'吉野{よしの}ヶ里{がり}遺跡{いせき}で、むらのまわりに深{ふか}い堀{ほり}やさくがあったのはなぜ？',o:['ほかのむらからの攻撃{こうげき}を防{ふせ}ぐため','魚{さかな}を育{そだ}てるため','子{こ}どもの遊{あそ}び場{ば}にするため','雨水{あまみず}をためて飲{の}むため'],e:'争{あらそ}いにそなえて、むらを守{まも}るためです。物見{ものみ}やぐらから見張{みは}りもしていました。',w:['yoshino']},
+ {id:'f6',t:'c',q:'相沢{あいざわ}忠洋{ただひろ}の発見{はっけん}で、どんなことがわかった？',o:['縄文{じょうもん}時代{じだい}より前{まえ}から日本{にほん}に人{ひと}が住{す}んでいた','米{こめ}づくりは江戸{えど}時代{じだい}に始{はじ}まった','日本{にほん}に恐竜{きょうりゅう}がいた','金印{きんいん}が本物{ほんもの}だった'],e:'それまで「日本{にほん}には旧石器{きゅうせっき}時代{じだい}はなかった」と考{かんが}えられていましたが、岩宿{いわじゅく}の発見{はっけん}で、もっと古{ふる}くから人{ひと}が住{す}んでいたことがわかりました。',p:'aizawa',w:['kyuseki']}],
+ G:[
+ {id:'g1',t:'pic',pic:'kinin',q:'この金{きん}のはんこを何{なん}という？',o:['金印{きんいん}','銅鐸{どうたく}','土偶{どぐう}','勾玉{まがたま}'],e:'江戸{えど}時代{じだい}に福岡県{ふくおかけん}の志賀島{しかのしま}で、農民{のうみん}が見{み}つけました。持{も}ち手{て}はヘビの形{かたち}で、「漢委奴国王{かんのわのなのこくおう}」の文字{もじ}がほられています。',p:'nakoku',w:['kinin']},
+ {id:'g2',t:'c',q:'金印{きんいん}は、どこの国{くに}の皇帝{こうてい}からおくられた？',o:['中国{ちゅうごく}（漢{かん}）','アメリカ','ローマ','インド'],e:'57年{ねん}、奴国{なこく}の王{おう}が中国{ちゅうごく}の漢{かん}に使{つか}いを送{おく}り、皇帝{こうてい}から金印{きんいん}をさずかったと、中国{ちゅうごく}の歴史書{れきししょ}に書{か}かれています。',p:'nakoku',w:['kinin']},
+ {id:'g3',t:'map',q:'金印{きんいん}が見{み}つかった志賀島{しかのしま}はどこ？',s:['shika','sannai','toro','iwajuku'],e:'志賀島{しかのしま}は福岡県{ふくおかけん}にある島{しま}です。大陸{たいりく}に近{ちか}い九州{きゅうしゅう}北部{ほくぶ}は、中国{ちゅうごく}との行{い}き来{き}の入口{いりぐち}でした。',p:'nakoku',w:['kinin']},
+ {id:'g4',t:'tf',q:'金印{きんいん}が見{み}つかったのは、弥生{やよい}時代{じだい}のすぐ後{あと}である。',a:0,e:'金印{きんいん}が見{み}つかったのは、ずっと後{あと}の江戸{えど}時代{じだい}（1784年{ねん}）です。田{た}んぼのみぞを直{なお}していた農民{のうみん}が見{み}つけました。',p:'nakoku',h:'見{み}つけたのは「農民{のうみん}」。いつの時代{じだい}の人{ひと}かな？'},
+ {id:'g5',t:'c',q:'奴国{なこく}のような「くに」は、どのようにしてできた？',o:['強{つよ}いむらがまわりのむらを従{したが}えてできた','天皇{てんのう}が命令{めいれい}してつくった','外国{がいこく}の人{ひと}がやって来{き}てつくった','話{はな}し合{あ}いで全国{ぜんこく}が一{ひと}つになった'],e:'争{あらそ}いに勝{か}った強{つよ}いむらが、まわりのむらを従{したが}えて、小{ちい}さな「くに」ができていきました。',p:'nakoku',w:['kuni']},
+ {id:'g6',t:'c',q:'奴国{なこく}の王{おう}が、わざわざ中国{ちゅうごく}に使{つか}いを送{おく}ったのはなぜ？',o:['中国{ちゅうごく}の皇帝{こうてい}にみとめてもらい、まわりより強{つよ}い立場{たちば}になるため','米{こめ}の作{つく}り方{かた}を教{おし}えるため','観光{かんこう}をするため','金{きん}を売{う}ってお金{かね}をもうけるため'],e:'大国{たいこく}の中国{ちゅうごく}にみとめられることで、ほかのくにより強{つよ}い立場{たちば}に立{た}とうとしたと考{かんが}えられています。卑弥呼{ひみこ}も同{おな}じように魏{ぎ}へ使{つか}いを送{おく}りました。',p:'nakoku'}],
+ H:[
+ {id:'h1',t:'c',q:'卑弥呼{ひみこ}は、何{なん}という国{くに}の女王{じょおう}？',o:['邪馬台国{やまたいこく}','奴国{なこく}','大和朝廷{やまとちょうてい}','魏{ぎ}'],e:'卑弥呼{ひみこ}は、30ほどのくにを従{したが}えた邪馬台国{やまたいこく}の女王{じょおう}です。',p:'himiko',w:['yamatai']},
+ {id:'h2',t:'c',q:'卑弥呼{ひみこ}は、どのようにして国{くに}を治{おさ}めた？',o:['うらないやまじないで神{かみ}のお告{つ}げを伝{つた}えた','大{おお}きな軍隊{ぐんたい}で全国{ぜんこく}を支配{しはい}した','たくさんの法律{ほうりつ}を作{つく}った','選挙{せんきょ}でえらばれて政治{せいじ}をした'],e:'卑弥呼{ひみこ}は、うらないやまじないで神{かみ}の意志{いし}を聞{き}き、人々{ひとびと}を従{したが}えました。実際{じっさい}の政治{せいじ}は弟{おとうと}が助{たす}けたとされます。',p:'himiko'},
+ {id:'h3',t:'c',q:'卑弥呼{ひみこ}のことが書{か}かれている中国{ちゅうごく}の歴史書{れきししょ}は？',o:['魏志倭人伝{ぎしわじんでん}','古事記{こじき}','日本書紀{にほんしょき}','源氏物語{げんじものがたり}'],e:'中国{ちゅうごく}の歴史書{れきししょ}『魏志倭人伝{ぎしわじんでん}』に、邪馬台国{やまたいこく}や卑弥呼{ひみこ}のことが書{か}かれています。古事記{こじき}や日本書紀{にほんしょき}は日本{にほん}でつくられた歴史書{れきししょ}、源氏物語{げんじものがたり}は平安{へいあん}時代{じだい}の物語{ものがたり}です。',p:'himiko',w:['gishi']},
+ {id:'h4',t:'tf',q:'卑弥呼{ひみこ}は中国{ちゅうごく}の魏{ぎ}に使{つか}いを送{おく}り、「親魏倭王{しんぎわおう}」の称号{しょうごう}や銅{どう}の鏡{かがみ}をさずかった。',a:1,e:'そのとおり。239年{ねん}に使{つか}いを送{おく}り、「親魏倭王{しんぎわおう}」の称号{しょうごう}と、銅鏡{どうきょう}100枚{まい}などをさずかったと伝{つた}えられています。',p:'himiko',h:'奴国{なこく}の王{おう}と同{おな}じように、中国{ちゅうごく}にみとめてもらったよ。'},
+ {id:'h5',t:'order',q:'古{ふる}い順{じゅん}にならべよう',it:['大陸{たいりく}から米{こめ}づくりが伝{つた}わる','奴国{なこく}の王{おう}が金印{きんいん}をさずかる','卑弥呼{ひみこ}が魏{ぎ}に使{つか}いを送{おく}る','各地{かくち}に大{おお}きな古墳{こふん}がつくられる'],e:'米{こめ}づくりの伝来{でんらい}→57年{ねん}の金印{きんいん}→239年{ねん}の卑弥呼{ひみこ}の使{つか}い→古墳{こふん}時代{じだい}の順{じゅん}です。',p:'himiko'},
+ {id:'h6',t:'c',q:'卑弥呼{ひみこ}が女王{じょおう}になる前{まえ}、くにぐにはどんな様子{ようす}だった？',o:['争{あらそ}いが長{なが}く続{つづ}いていた','とても平和{へいわ}で争{あらそ}いはなかった','人{ひと}がほとんど住{す}んでいなかった','外国{がいこく}に支配{しはい}されていた'],e:'くにどうしの争{あらそ}いが長{なが}く続{つづ}いていたため、くにぐには話{はな}し合{あ}って卑弥呼{ひみこ}を女王{じょおう}に立{た}て、争{あらそ}いをおさめました。',p:'himiko'}],
+ T:[
+ {id:'t1',t:'c',q:'金印{きんいん}にほられている5文字{もじ}は？',o:['漢委奴国王{かんのわのなのこくおう}','親魏倭王{しんぎわおう}','天下布武{てんかふぶ}','大和{やまと}朝廷{ちょうてい}'],e:'「漢{かん}の委{わ}（倭{わ}）の奴{な}の国王{こくおう}」と読{よ}まれることが多{おお}い文字{もじ}です。親魏倭王{しんぎわおう}は卑弥呼{ひみこ}の称号{しょうごう}、天下布武{てんかふぶ}は織田{おだ}信長{のぶなが}の印{いん}です。',p:'nakoku'},
+ {id:'t2',t:'c',q:'奴国{なこく}の王{おう}が金印{きんいん}をさずかったことが書{か}かれている中国{ちゅうごく}の歴史書{れきししょ}は？',o:['後漢書{ごかんじょ}東夷伝{とういでん}','魏志倭人伝{ぎしわじんでん}','宋書{そうじょ}倭国伝{わこくでん}','漢書{かんじょ}地理志{ちりし}'],e:'『後漢書{ごかんじょ}』東夷伝{とういでん}に、57年{ねん}に奴国{なこく}が使{つか}いを送{おく}り、皇帝{こうてい}が印{いん}をさずけたと書{か}かれています。',p:'nakoku'},
+ {id:'t3',t:'c',q:'旧石器{きゅうせっき}時代{じだい}と縄文{じょうもん}時代{じだい}の石器{せっき}のちがいとして正{ただ}しいのは？',o:['縄文{じょうもん}時代{じだい}には、みがいて作{つく}る磨製{ませい}石器{せっき}も使{つか}われた','旧石器{きゅうせっき}時代{じだい}の石器{せっき}のほうがよくみがかれていた','どちらの時代{じだい}も金属{きんぞく}の道具{どうぐ}が中心{ちゅうしん}だった','縄文{じょうもん}時代{じだい}には石器{せっき}は使{つか}われなかった'],e:'旧石器{きゅうせっき}時代{じだい}は打{う}ちかいて作{つく}る打製{だせい}石器{せっき}が中心{ちゅうしん}。縄文{じょうもん}時代{じだい}になると、表面{ひょうめん}をみがいた磨製{ませい}石器{せっき}も使{つか}われました。'},
+ {id:'t4',t:'c',q:'弥生{やよい}時代{じだい}の青銅器{せいどうき}と鉄器{てっき}の、主{おも}な使{つか}い分{わ}けは？',o:['青銅器{せいどうき}はまつりの道具{どうぐ}、鉄器{てっき}は農具{のうぐ}や武器{ぶき}','青銅器{せいどうき}は農具{のうぐ}、鉄器{てっき}はまつりの道具{どうぐ}','どちらもかざりとしてだけ使{つか}われた','どちらも料理{りょうり}の道具{どうぐ}だった'],e:'やわらかい青銅器{せいどうき}は銅鐸{どうたく}・銅鏡{どうきょう}などまつりの道具{どうぐ}に、かたい鉄器{てっき}は農具{のうぐ}や工具{こうぐ}、武器{ぶき}に使{つか}われました。',w:['kinzoku']},
+ {id:'t5',t:'c',q:'米{こめ}づくりが広{ひろ}がって、身分{みぶん}の差{さ}が生{う}まれたのはなぜ？',o:['たくわえ（富{とみ}）に差{さ}ができ、むらを指図{さしず}する人{ひと}が力{ちから}をもったから','みんなが同{おな}じ量{りょう}の米{こめ}をもったから','狩{か}りが上手{じょうず}な人{ひと}だけが王{おう}になったから','外国{がいこく}から王{おう}がやって来{き}たから'],e:'米{こめ}がたくわえられると、持{も}つ人{ひと}と持{も}たない人{ひと}の差{さ}が生{う}まれ、田{た}づくりやまつりを指図{さしず}する人{ひと}が力{ちから}をもつようになりました。'},
+ {id:'t6',t:'order',q:'中国{ちゅうごく}の歴史書{れきししょ}に書{か}かれた順{じゅん}（古{ふる}い順{じゅん}）にならべよう',it:['倭{わ}は百{ひゃく}あまりのくにに分{わ}かれていた','奴国{なこく}の王{おう}が漢{かん}に使{つか}いを送{おく}った','倭{わ}が大{おお}きく乱{みだ}れた','卑弥呼{ひみこ}が魏{ぎ}に使{つか}いを送{おく}った'],e:'『漢書{かんじょ}』地理志{ちりし}の「百{ひゃく}あまりのくに」（紀元前{きげんぜん}1世紀{せいき}ごろ）→57年{ねん}の奴国{なこく}→2世紀{せいき}後半{こうはん}の大{おお}きな乱{みだ}れ→239年{ねん}の卑弥呼{ひみこ}の順{じゅん}です。'},
+ {id:'t7',t:'c',q:'縄文{じょうもん}時代{じだい}に、今{いま}より海{うみ}が陸{りく}の奥{おく}まで入{はい}りこんでいたことを何{なん}という？',o:['縄文{じょうもん}海進{かいしん}','大陸{たいりく}移動{いどう}','液状化{えきじょうか}','氷河期{ひょうがき}'],e:'暖{あたた}かくなって海面{かいめん}が上{あ}がり、海{うみ}が内陸{ないりく}まで入{はい}りこんだことを「縄文{じょうもん}海進{かいしん}」といいます。内陸{ないりく}で貝塚{かいづか}が見{み}つかる理由{りゆう}です。'},
+ {id:'t8',t:'c',q:'卑弥呼{ひみこ}の死後{しご}、国{くに}が乱{みだ}れたあとに女王{じょおう}となった少女{しょうじょ}は？',o:['壱与{いよ}（台与{とよ}）','推古{すいこ}天皇{てんのう}','紫式部{むらさきしきぶ}','北条{ほうじょう}政子{まさこ}'],e:'卑弥呼{ひみこ}の死後{しご}、男{おとこ}の王{おう}を立{た}てると国{くに}が乱{みだ}れたため、13才{さい}の壱与{いよ}（台与{とよ}）を女王{じょおう}にして、ようやくおさまったと『魏志倭人伝{ぎしわじんでん}』にあります。',p:'himiko'},
+ {id:'t9',t:'pair',q:'中国{ちゅうごく}の歴史書{れきししょ}と、書{か}かれている内容{ないよう}を結{むす}ぼう',pr:[['漢書{かんじょ}地理志{ちりし}','倭{わ}が百{ひゃく}あまりのくにに分{わ}かれていた'],['後漢書{ごかんじょ}東夷伝{とういでん}','奴国{なこく}の王{おう}が金印{きんいん}をさずかった'],['魏志倭人伝{ぎしわじんでん}','卑弥呼{ひみこ}と邪馬台国{やまたいこく}']],e:'古{ふる}い順{じゅん}に、漢書{かんじょ}地理志{ちりし}→後漢書{ごかんじょ}東夷伝{とういでん}→魏志倭人伝{ぎしわじんでん}。日本{にほん}にまだ文字{もじ}の記録{きろく}がないころの様子{ようす}は、中国{ちゅうごく}の歴史書{れきししょ}からわかります。',w:['gishi']}]};
+const QB={};for(const k in POOL)POOL[k].forEach(q=>QB[q.id]=q);
+
+const SQ={jomon:[
+ {type:'quiz',name:'縄文{じょうもん}のむら',pool:'A',npc:'tsuchi',talk:['ようこそ、ぼくらのむらへ！','ここでは、森{もり}で木{き}の実{み}を集{あつ}めたり、海{うみ}で貝{かい}や魚{さかな}をとったりしてくらしているよ。','ぼくらのくらし、どれだけわかるかな？']},
+ {type:'treasure',name:'土器{どき}と土偶{どぐう}',pool:'B',npc:'tsuchi',talk:['見{み}て！お母{かあ}さんが作{つく}った土器{どき}だよ。','縄{なわ}を転{ころ}がしてもようをつけるんだ。にたり、たくわえたりするのに使{つか}うよ。','今{いま}のくらしの道具{どうぐ}とくらべてみよう！']},
+ {type:'person',name:'貝塚{かいづか}の発見{はっけん}',pool:'C',npc:'jii',card:'morse',talk:['ほっほっ、貝塚{かいづか}に来{き}たな。','ずっと後{あと}の明治{めいじ}時代{じだい}、ここに目{め}をつけた外国{がいこく}の学者{がくしゃ}がおったそうじゃ。','その人物{じんぶつ}を知{し}れば、仲間{なかま}になってくれるかもしれんぞ。']},
+ {type:'warp',name:'時空{じくう}のゆがみ',pool:'D',npc:'jii',talk:['む…時空{じくう}がゆがんでおる！','できごとの順番{じゅんばん}が入{い}れかわってしまったのじゃ。','正{ただ}しくならべ直{なお}して、時{とき}の流{なが}れを元{もと}にもどしてくれ！']},
+ {type:'quiz',name:'米{こめ}づくりの始{はじ}まり',pool:'E',npc:'ine',talk:['やあ、旅{たび}の人{ひと}。わたしはイネ。','海{うみ}の向{む}こうから米{こめ}づくりが伝{つた}わって、むらのくらしががらりと変{か}わったんだ。','田{た}んぼのこと、教{おし}えてあげよう。']},
+ {type:'treasure',name:'遺跡{いせき}をさがせ',pool:'F',npc:'jii',card:'aizawa',talk:['この国{くに}のあちこちに、むかしのむらのあと…遺跡{いせき}がねむっておる。','地図{ちず}で場所{ばしょ}をさがしてみるのじゃ。','赤土{あかつち}の中{なか}から石器{せっき}を見{み}つけた若者{わかもの}にも、会{あ}えるかもしれんぞ。']},
+ {type:'person',name:'金印{きんいん}のなぞ',pool:'G',npc:'ine',card:'nakoku',talk:['となりのくにの王{おう}さまが、海{うみ}をこえて中国{ちゅうごく}へ使{つか}いを出{だ}したらしい。','金{きん}のはんこをもらったとか…。','王{おう}さまのこと、調{しら}べてみるかい？']},
+ {type:'boss',name:'邪馬台国{やまたいこく}',pool:'H',npc:'ine',card:'himiko',talk:['この先{さき}は、女王{じょおう}さまの宮殿{きゅうでん}だ。','女王{じょおう}さまは、神{かみ}のお告{つ}げを聞{き}くお方{かた}。','…旅{たび}の人{ひと}、気{き}をつけてな。']}]};
+const BOSS={jomon:{look:'himiko',name:'卑弥呼{ひみこ}',intro:['わらわは邪馬台国{やまたいこく}の女王{じょおう}、卑弥呼{ひみこ}。','はるか未来{みらい}より来{き}た旅人{たびびと}よ…。','そなたに、この国{くに}の歴史{れきし}を語{かた}る力{ちから}があるか、ためさせてもらおう。'],
+ ok:['ほう…よく知{し}っておるな。','なかなかやるではないか。','神{かみ}もおどろいておるぞ。','見事{みごと}な答{こた}えじゃ。'],ng:['ふふ…まだまだじゃな。','よく思{おも}い出{だ}すのじゃ。','神{かみ}はそうは申{もう}しておらぬぞ。'],
+ win:'見事{みごと}じゃ。そなたを認{みと}めよう。わらわも旅{たび}の仲間{なかま}に加{くわ}わろうぞ。',lose:'今日{きょう}はここまでじゃ。力{ちから}をつけて、また来{く}るがよい。'}};
+const NEWS={jomon:{title:'縄文{じょうもん}・弥生{やよい}時代{じだい}新聞{しんぶん}',date:'紀元前{きげんぜん}〜3世紀{せいき}ごろ',arts:[
+ ['米{こめ}づくり、海{うみ}をこえて伝{つた}わる','大陸{たいりく}から九州{きゅうしゅう}北部{ほくぶ}に伝{つた}わった米{こめ}づくりが、各地{かくち}に広{ひろ}がっている。人々{ひとびと}は田{た}のそばに住{す}みつき、高床{たかゆか}倉庫{そうこ}に米{こめ}をたくわえるようになった。'],
+ ['むらからくにへ　争{あらそ}いも','米{こめ}や土地{とち}をめぐる争{あらそ}いが起{お}こり、強{つよ}いむらがまわりをまとめて「くに」ができはじめた。吉野{よしの}ヶ里{がり}では、むらを堀{ほり}とさくで囲{かこ}んで守{まも}っている。'],
+ ['女王{じょおう}卑弥呼{ひみこ}、魏{ぎ}に使{つか}い','邪馬台国{やまたいこく}の女王{じょおう}卑弥呼{ひみこ}は239年{ねん}、中国{ちゅうごく}の魏{ぎ}に使{つか}いを送{おく}り、「親魏倭王{しんぎわおう}」の称号{しょうごう}と銅{どう}の鏡{かがみ}をさずかった。']]}};
+const TITLES=[
+ ['tabi','はじめの一歩{いっぽ}','はじめてマスをクリアする',m=>Object.values(m.pos).some(v=>v>0)],
+ ['nomiss','ノーミスの旅人{たびびと}','1つのマスを全問{ぜんもん}正解{せいかい}する',m=>m.flags.nomiss],
+ ['jomon','縄文{じょうもん}・弥生{やよい}マスター','縄文{じょうもん}・弥生{やよい}時代{じだい}をクリアする',m=>m.cleared.jomon],
+ ['col4','偉人{いじん}コレクター','偉人{いじん}カードを4枚{まい}集{あつ}める',m=>Object.keys(m.cards).length>=4],
+ ['emaki','絵巻{えまき}職人{しょくにん}','絵巻{えまき}にカードを3枚{まい}はる',m=>Object.keys(m.placed).length>=3],
+ ['word10','ことば博士{はかせ}','ことばを10こ集{あつ}める',m=>Object.keys(m.words).length>=10],
+ ['rep3','修理{しゅうり}名人{めいじん}','タイムマシンを3回{かい}修理{しゅうり}する',m=>m.rep>=3],
+ ['map5','地図{ちず}の達人{たつじん}','地図{ちず}の問題{もんだい}に5問{もん}正解{せいかい}する',m=>m.mapok>=5],
+ ['star3','心{こころ}の友{とも}','カードを★3にする',m=>Object.values(m.cards).some(c=>c.xp>=6)],
+ ['dan1','達人{たつじん}の間{ま} 初段{しょだん}','達人{たつじん}の間{ま}で初段{しょだん}になる',m=>m.tok>=5],
+ ['star90','れきしの星{ほし}','20問{もん}以上{いじょう}答{こた}えて正答率{せいとうりつ}90%以上{いじょう}',m=>m.st.ans>=20&&m.st.ok/m.st.ans>=.9]];
+const DAN=[[0,'無段{むだん}'],[5,'初段{しょだん}'],[12,'二段{にだん}'],[20,'三段{さんだん}'],[30,'四段{よだん}'],[45,'歴史{れきし}名人{めいじん}']];
+const dan=n=>{let r=DAN[0][1];for(const[k,v]of DAN)if(n>=k)r=v;return r};
+
+/* ================= 絵 ================= */
+const LOOKS={
+ morse:{hc:'#7a6b58',bg:'#d9d2c2',robe:'#3f4650',trim:'#e9e4da',skin:'#ecd2b8',hair:'<path d="M38 58Q38 32 60 32Q82 32 82 58Q78 44 60 43Q42 44 38 58Z" fill="#8a7b68"/>',front:'<path d="M46 72Q60 64 74 72Q67 76 60 72Q53 76 46 72Z" fill="#8a7b68"/><path d="M42 74Q60 108 78 74Q72 94 60 95Q48 94 42 74Z" fill="#8a7b68"/>'},
+ aizawa:{bg:'#d8d6c6',robe:'#6b6a58',trim:'#c9c2ad',skin:'#e8c9a8',hair:'<path d="M37 60Q36 33 60 33Q84 33 83 60Q78 45 60 45Q42 45 37 60Z" fill="#2f2b28"/>',front:'<path d="M30 140L36 112L48 108" stroke="#4f4e41" stroke-width="3" fill="none"/>'},
+ nakoku:{bg:'#e0d4bd',robe:'#7a5a3c',trim:'#b08a4f',skin:'#e3c19d',hair:'<path d="M38 58Q38 34 60 34Q82 34 82 58Q74 44 60 44Q46 44 38 58Z" fill="#2f2b28"/><ellipse cx="35" cy="72" rx="7" ry="12" fill="#2f2b28"/><ellipse cx="85" cy="72" rx="7" ry="12" fill="#2f2b28"/><rect x="38" y="40" width="44" height="6" rx="2" fill="#b08a4f"/>',front:'<path d="M46 104Q60 116 74 104" stroke="#5f7f80" stroke-width="4" fill="none"/><path d="M60 112q-6 2 -5 8q2 4 6 1" fill="#5f7f80"/>'},
+ himiko:{bg:'#e3d5c6',robe:'#efe7d8',trim:'#8c3d45',skin:'#f0d6bf',back:'<path d="M31 62Q28 28 60 26Q92 28 89 62L95 120Q60 130 25 120Z" fill="#2a2522"/>',hair:'<path d="M37 60Q39 33 60 33Q81 33 83 60Q80 47 70 45L60 52L50 45Q40 47 37 60Z" fill="#2a2522"/><circle cx="60" cy="30" r="6" fill="#b08a4f"/>',front:'<path d="M40 102Q60 120 80 102" stroke="#5f7f80" stroke-width="5" stroke-dasharray="2 6" stroke-linecap="round" fill="none"/><circle cx="60" cy="124" r="11" fill="#c9b37a" stroke="#8c7a46" stroke-width="2"/><circle cx="60" cy="124" r="5" fill="none" stroke="#8c7a46"/>'},
+ kid:{bg:'#dbe0cf',robe:'#a8916b',trim:'#6f7e4c',skin:'#e6c3a0',hair:'<path d="M37 62Q34 30 60 31Q86 30 83 62L80 50L74 56L68 46L60 54L52 46L46 56L40 50Z" fill="#3a2f26"/>',front:'<path d="M28 124l10-8 10 8 10-8 10 8 10-8 10 8 10-8" stroke="#6f5a40" stroke-width="3" fill="none"/>'},
+ farmer:{bg:'#d8dccb',robe:'#c9b48d',trim:'#7d8c55',skin:'#e6c3a0',hair:'<path d="M38 58Q38 34 60 34Q82 34 82 58Q74 46 60 46Q46 46 38 58Z" fill="#2f2b28"/><circle cx="60" cy="30" r="8" fill="#2f2b28"/><rect x="37" y="45" width="46" height="6" rx="3" fill="#7d8c55"/>',front:''},
+ elder:{hc:'#cfc8bb',bg:'#d9d2c6',robe:'#8a7f6e',trim:'#5b544a',skin:'#e2c6a8',hair:'<path d="M38 64Q34 44 42 40Q38 54 44 60Z" fill="#e8e2d6"/><path d="M82 64Q86 44 78 40Q82 54 76 60Z" fill="#e8e2d6"/><path d="M48 48q12 -6 24 0" stroke="#e8e2d6" stroke-width="4" fill="none"/>',front:'<path d="M44 74Q60 70 76 74Q74 110 60 118Q46 110 44 74Z" fill="#ece6da"/>'}};
+
+function mkLook(o){const h=o.hc||'#1f1b18',L={bg:o.bg||'#ddd5c4',robe:o.robe||'#6b5a48',trim:o.trim||'#b08a4f',skin:o.skin||'#ecd0b2',hc:h,back:'',hair:'',front:''};
+ const sides=`<path d="M38 62Q36 44 42 40L45 60Z" fill="${h}"/><path d="M82 62Q84 44 78 40L75 60Z" fill="${h}"/>`;
+ const top=`<path d="M38 58Q38 34 60 34Q82 34 82 58Q76 44 60 43Q44 44 38 58Z" fill="${h}"/>`;
+ switch(o.style){
+  case 'kanmuri':L.hair=top+`<path d="M45 41Q45 21 60 19Q75 21 75 41Z" fill="#141210"/><rect x="43" y="38" width="34" height="6" rx="2" fill="#141210"/><path d="M60 19L60 6" stroke="#141210" stroke-width="5" stroke-linecap="round"/>`;break;
+  case 'crown':L.hair=top+`<rect x="42" y="30" width="36" height="12" rx="2" fill="#141210"/><rect x="38" y="24" width="44" height="5" fill="#b08a4f"/><path d="M42 29v8M50 29v10M60 29v10M70 29v10M78 29v8" stroke="#d9c391" stroke-width="2"/>`;break;
+  case 'eboshi':L.hair=sides+top+`<path d="M44 42Q40 16 63 9Q79 13 76 42Z" fill="#1a1715"/><path d="M48 30Q60 24 72 28" stroke="#3a3530" stroke-width="1.5" fill="none"/>`;break;
+  case 'chonmage':L.hair=sides+`<path d="M44 44Q60 38 76 44" stroke="${h}" stroke-width="2" fill="none" opacity=".35"/><path d="M56 36L56 27Q60 21 68 24L66 29Q62 27 61 36Z" fill="${h}"/>`;break;
+  case 'monk':L.hair='';break;
+  case 'lady':L.back=`<path d="M30 62Q27 27 60 25Q93 27 90 62L98 128Q60 136 22 128Z" fill="${h}"/>`;L.hair=`<path d="M37 62Q38 33 60 32Q82 33 83 62Q79 44 60 42Q41 44 37 62Z" fill="${h}"/>`;break;
+  case 'bun':L.hair=top+`<ellipse cx="60" cy="30" rx="13" ry="9" fill="${h}"/>`;break;
+  case 'mizura':L.hair=top+`<ellipse cx="35" cy="72" rx="7" ry="12" fill="${h}"/><ellipse cx="85" cy="72" rx="7" ry="12" fill="${h}"/>`;break;
+  case 'western':L.hair=`<path d="M38 60Q36 34 62 33Q84 34 82 58Q80 46 66 42Q50 46 40 50Z" fill="${h}"/>`;break;
+  case 'short':L.hair=`<path d="M38 58Q37 33 60 33Q83 33 82 58Q78 44 60 42Q42 44 38 58Z" fill="${h}"/>`;break;
+  case 'cap':L.hair=`<path d="M38 56Q38 34 60 33Q82 34 82 56Z" fill="${o.capc||'#3e5b74'}"/><path d="M58 52Q74 50 90 56Q74 58 58 56Z" fill="${shade(o.capc||'#3e5b74',-.3)}"/>`;break;
+ }
+ let f='';
+ if(o.beard==='full')f+=`<path d="M44 72Q60 112 76 72Q72 94 60 95Q48 94 44 72Z" fill="${h}"/>`;
+ if(o.beard==='mus'||o.beard==='full')f+=`<path d="M47 75Q60 68 73 75Q66 78 60 75Q54 78 47 75Z" fill="${h}"/>`;
+ if(o.beard==='goatee')f+=`<path d="M55 86Q60 96 65 86Z" fill="${h}"/><path d="M50 76Q60 71 70 76" stroke="${h}" stroke-width="2.5" fill="none"/>`;
+ if(o.glasses)f+=`<g fill="none" stroke="#3a2e26" stroke-width="1.6"><circle cx="51" cy="63" r="6"/><circle cx="69" cy="63" r="6"/><path d="M57 63h6"/></g>`;
+ if(o.suit)f+=`<path d="M48 96L60 120L72 96Z" fill="#f2efe8"/><path d="M58.5 99h3l-.5 19h-2z" fill="${o.tie||'#7a2f35'}"/>`;
+ if(o.kesa)f+=`<path d="M28 140L72 98L82 104L44 140Z" fill="${o.kesa}"/>`;
+ if(o.necklace)f+=`<path d="M42 104Q60 120 78 104" stroke="#5f7f80" stroke-width="5" stroke-dasharray="2 6" stroke-linecap="round" fill="none"/>`;
+ L.front=f;return L}
+let FID=0;
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const t=f<0?0:255,p=Math.abs(f);r=Math.round((t-r)*p+r);g=Math.round((t-g)*p+g);b=Math.round((t-b)*p+b);return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1)}
+function face(k,cls='pt'){const L=LOOKS[k]||LOOKS.elder,u='f'+(FID++),sk=L.skin,hc=L.hc||'#2f2b28';
+ return `<svg viewBox="0 0 120 140" class="${cls}"><defs>
+ <radialGradient id="${u}b" cx=".5" cy=".4" r=".65"><stop offset="0" stop-color="${shade(L.bg,.25)}"/><stop offset="1" stop-color="${shade(L.bg,-.22)}"/></radialGradient>
+ <radialGradient id="${u}s" cx=".42" cy=".36" r=".72"><stop offset="0" stop-color="${shade(sk,.18)}"/><stop offset=".6" stop-color="${sk}"/><stop offset="1" stop-color="${shade(sk,-.22)}"/></radialGradient>
+ <linearGradient id="${u}n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(sk,-.3)}"/><stop offset="1" stop-color="${shade(sk,-.08)}"/></linearGradient>
+ <linearGradient id="${u}r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${shade(L.robe,.12)}"/><stop offset="1" stop-color="${shade(L.robe,-.28)}"/></linearGradient>
+ <radialGradient id="${u}i" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#6b4a33"/><stop offset="1" stop-color="#21160f"/></radialGradient></defs>
+ <circle cx="60" cy="66" r="58" fill="url(#${u}b)"/>${L.back||''}
+ <path d="M10 140Q18 96 60 92Q102 96 110 140Z" fill="url(#${u}r)"/><path d="M34 112q6 14 4 28M86 112q-6 14 -4 28M60 122v18" stroke="rgba(0,0,0,.16)" stroke-width="1.5" fill="none"/>
+ <path d="M44 95L60 122L76 95" fill="none" stroke="${L.trim}" stroke-width="6"/>
+ <path d="M51 78h18v19q-9 5 -18 0Z" fill="url(#${u}n)"/>
+ <ellipse cx="38.5" cy="65" rx="4" ry="6.5" fill="${shade(sk,-.12)}"/><ellipse cx="81.5" cy="65" rx="4" ry="6.5" fill="${shade(sk,-.12)}"/>
+ <path d="M38 58Q38 36 60 36Q82 36 82 58Q82 78 70 86Q60 92 50 86Q38 78 38 58Z" fill="url(#${u}s)"/>
+ <path d="M42 74Q48 86 60 89Q72 86 78 74Q74 90 60 92Q46 90 42 74Z" fill="${shade(sk,-.25)}" opacity=".35"/>
+ <path d="M45.5 56.5q5.5-3 11 -.5M63.5 56q5.5-2.5 11 .5" stroke="${shade(hc,.1)}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+ <path d="M46 63.5q5-4.2 10 0q-5 2.8-10 0Z" fill="#f6f1ea"/><path d="M64 63.5q5-4.2 10 0q-5 2.8-10 0Z" fill="#f6f1ea"/>
+ <circle cx="51" cy="63.3" r="2.5" fill="url(#${u}i)"/><circle cx="69" cy="63.3" r="2.5" fill="url(#${u}i)"/><circle cx="51" cy="63.3" r="1" fill="#0d0907"/><circle cx="69" cy="63.3" r="1" fill="#0d0907"/>
+ <circle cx="51.8" cy="62.5" r=".7" fill="#fff"/><circle cx="69.8" cy="62.5" r=".7" fill="#fff"/>
+ <path d="M45.8 63.2q5.2-4.6 10.4 0M63.8 63.2q5.2-4.6 10.4 0" stroke="#3a2a20" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+ <path d="M60 64q-1.5 7-3.2 9.5q3.2 1.6 6.4 0" stroke="${shade(sk,-.3)}" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+ <path d="M54 79q6 -2.2 12 0q-6 3.6 -12 0Z" fill="#b06e66"/><path d="M54 79q6 1 12 0" stroke="#7d4842" stroke-width=".9" fill="none"/>
+ <ellipse cx="45" cy="72" rx="5" ry="3" fill="#d9907c" opacity=".22"/><ellipse cx="75" cy="72" rx="5" ry="3" fill="#d9907c" opacity=".22"/>
+ ${L.hair}${L.front||''}</svg>`}
+const PICS={
+ jdoki:`<svg viewBox="0 0 200 200"><ellipse cx="100" cy="182" rx="56" ry="8" fill="#000" opacity=".12"/><path d="M58 64L48 34L66 48L70 22L84 44L94 18L102 42L112 18L118 44L132 22L136 48L152 34L142 64Z" fill="#8f603d"/><path d="M58 62Q48 112 70 166Q100 184 130 166Q152 112 142 62Z" fill="#a8774c"/><g stroke="#7a5233" stroke-width="2.4" fill="none" stroke-linecap="round"><path d="M60 82Q100 92 140 82M58 104Q100 114 142 104M62 130Q100 140 138 130M68 152Q100 162 132 152"/><path d="M70 90l6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8M70 118l6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8 6 8 6-8" stroke-width="1.6"/></g><path d="M66 70Q70 120 80 162" stroke="#c49468" stroke-width="5" fill="none" opacity=".5"/></svg>`,
+ ydoki:`<svg viewBox="0 0 200 200"><ellipse cx="100" cy="182" rx="50" ry="8" fill="#000" opacity=".12"/><path d="M80 34L120 34L114 62Q154 82 150 122Q144 172 100 174Q56 172 50 122Q46 82 86 62Z" fill="#c58f5e"/><path d="M76 34L124 34" stroke="#a87448" stroke-width="6" stroke-linecap="round"/><path d="M60 96Q100 108 140 96" stroke="#a87448" stroke-width="2.5" fill="none"/><path d="M58 104Q100 116 142 104" stroke="#a87448" stroke-width="1.5" fill="none"/><path d="M66 90Q62 130 80 162" stroke="#dcae80" stroke-width="5" fill="none" opacity=".6"/></svg>`,
+ dogu:`<svg viewBox="0 0 200 200"><g fill="#9b7b5a" stroke="#6f553b" stroke-width="2"><path d="M70 96Q60 150 74 172L94 172L100 150L106 172L126 172Q140 150 130 96Z"/><path d="M70 100Q46 104 40 128Q52 132 72 118Z"/><path d="M130 100Q154 104 160 128Q148 132 128 118Z"/><ellipse cx="100" cy="62" rx="40" ry="36"/></g><g fill="#c8b293" stroke="#6f553b" stroke-width="2"><ellipse cx="84" cy="62" rx="15" ry="12"/><ellipse cx="116" cy="62" rx="15" ry="12"/></g><path d="M72 62h24M104 62h24" stroke="#6f553b" stroke-width="2.5"/><path d="M60 40Q100 14 140 40" stroke="#6f553b" stroke-width="3" fill="none"/><g stroke="#6f553b" stroke-width="1.8" fill="none"><path d="M80 116q20 12 40 0M78 134q22 12 44 0M84 150q16 8 32 0"/><circle cx="100" cy="126" r="5"/></g></svg>`,
+ ishibo:`<svg viewBox="0 0 200 200"><path d="M24 120Q100 30 176 120Q100 140 24 120Z" fill="#8f8a7e" stroke="#6b665c" stroke-width="2"/><path d="M34 116Q100 126 166 116" stroke="#b4afa3" stroke-width="3" fill="none"/><circle cx="86" cy="96" r="6" fill="#efe6d4" stroke="#6b665c"/><circle cx="114" cy="96" r="6" fill="#efe6d4" stroke="#6b665c"/><path d="M86 96Q100 56 114 96" stroke="#8a6a44" stroke-width="3" fill="none"/><path d="M86 96Q92 70 100 66Q108 70 114 96" stroke="#8a6a44" stroke-width="2" fill="none" opacity=".6"/><g stroke="#a98c4a" stroke-width="3" stroke-linecap="round"><path d="M150 60l14 -24M156 64l18 -18M160 70l20 -10"/></g><circle cx="168" cy="34" r="3" fill="#c9a64e"/><circle cx="176" cy="44" r="3" fill="#c9a64e"/><circle cx="182" cy="58" r="3" fill="#c9a64e"/></svg>`,
+ kura:`<svg viewBox="0 0 200 200"><ellipse cx="100" cy="184" rx="70" ry="7" fill="#000" opacity=".12"/><g fill="#6b5640"><rect x="54" y="118" width="7" height="64"/><rect x="96" y="118" width="7" height="64"/><rect x="139" y="118" width="7" height="64"/></g><g fill="#8a7253"><ellipse cx="57" cy="142" rx="13" ry="4"/><ellipse cx="100" cy="142" rx="13" ry="4"/><ellipse cx="143" cy="142" rx="13" ry="4"/></g><rect x="44" y="110" width="112" height="9" fill="#7d6849"/><rect x="54" y="78" width="92" height="32" fill="#b59c72"/><path d="M54 90h92M54 100h92" stroke="#9c845e"/><path d="M30 82L100 30L170 82Z" fill="#a08660"/><path d="M30 82L100 30L170 82" stroke="#7d6849" stroke-width="3" fill="none"/><path d="M88 36L80 24M112 36L120 24" stroke="#7d6849" stroke-width="3"/><path d="M160 184L176 118" stroke="#6b5640" stroke-width="5"/><path d="M164 168h10M168 150h10M171 134h9" stroke="#6b5640" stroke-width="3"/></svg>`,
+ dotaku:`<svg viewBox="0 0 200 200"><path d="M76 52Q76 18 100 18Q124 18 124 52" stroke="#5f7d6b" stroke-width="10" fill="none"/><path d="M70 50Q100 40 130 50L150 176Q100 186 50 176Z" fill="#6f8f7a" stroke="#4f6b5a" stroke-width="2"/><path d="M66 70Q100 62 134 70M62 100Q100 92 138 100M58 132Q100 124 142 132" stroke="#4f6b5a" stroke-width="3" fill="none"/><g stroke="#4f6b5a" stroke-width="1.6" fill="none"><path d="M100 70v62"/><path d="M76 80l8 12M84 80l-8 12M118 108q6-8 12 0M70 112q8 6 14 0"/></g><path d="M70 56Q66 120 62 170" stroke="#9fbcaa" stroke-width="5" opacity=".5"/></svg>`,
+ kinin:`<svg viewBox="0 0 200 200"><defs><linearGradient id="kg" x1="0" x2="1"><stop offset="0" stop-color="#e2cc96"/><stop offset=".5" stop-color="#c7a45e"/><stop offset="1" stop-color="#9a7843"/></linearGradient></defs><ellipse cx="100" cy="178" rx="62" ry="8" fill="#000" opacity=".12"/><path d="M50 110L100 92L150 110L150 160L100 178L50 160Z" fill="url(#kg)" stroke="#8a6a3a" stroke-width="2"/><path d="M50 110L100 128L150 110M100 128V178" stroke="#8a6a3a" stroke-width="2" fill="none"/><path d="M70 108Q66 80 92 76Q120 72 126 90Q130 104 112 106Q96 108 98 96Q100 88 110 90" stroke="#b08a4f" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M70 108Q66 80 92 76Q120 72 126 90Q130 104 112 106Q96 108 98 96Q100 88 110 90" stroke="#e2cc96" stroke-width="3" fill="none" stroke-linecap="round" opacity=".6"/><circle cx="111" cy="90" r="2.5" fill="#5b4320"/><text x="125" y="155" font-size="12" fill="#6f5228" font-family="serif" text-anchor="middle" transform="skewY(-20) translate(0 45)">漢委奴</text></svg>`};
+const PHOTO={
+ jdoki:{n:'火焔型{かえんがた}土器{どき}',f:'伝{でん}新潟県{にいがたけん}長岡市{ながおかし}出土{しゅつど}・縄文{じょうもん}時代{じだい}中期{ちゅうき}',id:'tnm/J-39036'},
+ dogu:{n:'遮光器{しゃこうき}土偶{どぐう}',f:'青森県{あおもりけん}つがる市{し}亀{かめ}ヶ岡{おか}出土{しゅつど}・縄文{じょうもん}時代{じだい}晩期{ばんき}',id:'tnm/J-38392'},
+ ydoki:{n:'弥生{やよい}土器{どき}（壺{つぼ}）',f:'東京都{とうきょうと}台東区{たいとうく}上野{うえの}出土{しゅつど}・弥生{やよい}時代{じだい}後期{こうき}',id:'tnm/J-1991'},
+ dotaku:{n:'銅鐸{どうたく}（突線鈕式{とっせんちゅうしき}）',f:'静岡県{しずおかけん}磐田市{いわたし}出土{しゅつど}・弥生{やよい}時代{じだい}後期{こうき}',id:'tnm/J-829'},
+ ishibo:{n:'石包丁{いしぼうちょう}',f:'福岡県{ふくおかけん}春日市{かすがし}出土{しゅつど}・弥生{やよい}時代{じだい}中期{ちゅうき}',id:'tnm/J-9551'},
+ kura:{n:'高床{たかゆか}倉庫{そうこ}（復元{ふくげん}）',f:'吉野{よしの}ヶ里{がり}歴史{れきし}公園{こうえん}（佐賀県{さがけん}）',cr:'写真{しゃしん}：Saigen Jiro（CC0）／ウィキメディア・コモンズ'},
+ kinin:{n:'金印{きんいん}「漢委奴国王{かんのわのなのこくおう}」',f:'福岡県{ふくおかけん}志賀島{しかのしま}出土{しゅつど}・国宝{こくほう}（福岡市{ふくおかし}博物館{はくぶつかん}所蔵{しょぞう}）',cr:'写真{しゃしん}：パブリックドメイン／ウィキメディア・コモンズ'}};
+const W2P={jdoki:'jdoki',dogu:'dogu',ydoki:'ydoki',dotaku:'dotaku',ishibo:'ishibo',takayuka:'kura',kinin:'kinin'};
+if(window.FIGS)Object.assign(PHOTO,FIGS.photos);
+let ERA_NOW=null;function fm(t,mode){let best=null,bl=0;if(!t||!window.FIGS)return null;for(const [k,kws,er] of FIGS.map){if(!PHOTO[k]||(er&&ERA_NOW&&!er.includes(ERA_NOW)))continue;for(let w of kws){const g=w[0]==='~';if(g)w=w.slice(1);const po=w[0]==='>';if(po)w=w.slice(1);if(mode==='gen'?!g:g)continue;if(po&&mode==='pre')continue;if(w.length>bl&&t.includes(w)){best=k;bl=w.length}}}return best}
+function figCalc(q){if(q._f)return q._f;let pre=null,post=null;ERA_NOW=q._era||'jomon';
+ if(q.t!=='pic'){if(q.fig&&PHOTO[q.fig])pre=q.fig;else{const nq=['map','order','pair'].includes(q.t),tq=P(q.q),ta=q.o?P(q.o[0]):'',te=P(q.e||'');
+  pre=nq?null:fm(tq,'pre');
+  if(!pre){post=fm(ta,'post')||(q.w||[]).map(w=>W2P[w]).find(k=>k&&PHOTO[k])||fm(tq,'post');
+   if(!post){const g=nq?null:fm(tq,'gen');if(g)pre=g;else post=fm(ta,'gen')||fm(te,'gen')}}}}
+ const ex=k=>{const w=(FIGS.excl||{})[k];return k&&w&&w.some(x=>(P(q.q)+(q.o?P(q.o[0]):'')).includes(x))?null:k};pre=ex(pre);post=ex(post);
+ return q._f={pre,post}}
+function figPre(q){return figCalc(q).pre}function figPost(q){return figCalc(q).post}
+function photo(k,named){const p=PHOTO[k];return `<figure class="photo"><img src="img/${k}.jpg" alt="${named?P(p.n):'問題の写真'}"><figcaption>${named?`<b>${R(p.n)}</b><br>${R(p.f)}<br>`:''}<small>${R(p.cr||'東京{とうきょう}国立{こくりつ}博物館{はくぶつかん}所蔵{しょぞう}／出典{しゅってん}：ColBase')}</small></figcaption></figure>`}
+function hanamaru(){let p='';for(let k=0;k<12;k++){const a=k/12*Math.PI*2,b=(k+1)/12*Math.PI*2;p+=(k?'':`M${50+40*Math.cos(a)} ${50+40*Math.sin(a)}`)+`Q${(50+52*Math.cos((a+b)/2)).toFixed(1)} ${(50+52*Math.sin((a+b)/2)).toFixed(1)} ${(50+40*Math.cos(b)).toFixed(1)} ${(50+40*Math.sin(b)).toFixed(1)}`}
+ return `<svg viewBox="-4 -4 108 108"><path d="${p}" fill="none" stroke="#a3423f" stroke-width="4"/><path d="M50 50m-6 0a6 6 0 1 1 12 0a12 12 0 1 1 -24 0a18 18 0 1 1 36 0a24 24 0 1 1 -48 0" fill="none" stroke="#a3423f" stroke-width="4.5" stroke-linecap="round"/></svg>`}
+function gear(r,n,d){let p='';for(let k=0;k<n*2;k++){const a1=k/(n*2)*Math.PI*2,a2=(k+1)/(n*2)*Math.PI*2,q=k%2?r:r+d;p+=(k?'L':'M')+(q*Math.cos(a1)).toFixed(1)+' '+(q*Math.sin(a1)).toFixed(1)+'L'+(q*Math.cos(a2)).toFixed(1)+' '+(q*Math.sin(a2)).toFixed(1)}return p+'Z'}
+function dialSvg(){return `<svg viewBox="-200 -200 400 400" class="dial"><defs><radialGradient id="brass" cx=".4" cy=".35"><stop offset="0" stop-color="#e6d19c"/><stop offset="1" stop-color="#9a7843"/></radialGradient></defs>
+<circle r="194" fill="#24364a"/><circle r="182" fill="none" stroke="url(#brass)" stroke-width="10"/><circle r="122" fill="none" stroke="#9a7843" stroke-width="2" stroke-dasharray="3 7"/>
+${ERAS.map((e,i)=>{const a=i/11*Math.PI*2-Math.PI/2,x=(150*Math.cos(a)).toFixed(1),y=(150*Math.sin(a)).toFixed(1),c=me&&me.cleared[e.id];return `<circle cx="${x}" cy="${y}" r="21" fill="${c?'#8c3d45':'#33485c'}" stroke="#9a7843" stroke-width="2"/><text x="${x}" y="${(+y+8).toFixed(1)}" text-anchor="middle" class="dg">${e.gl}</text>`}).join('')}
+<g class="g1"><path d="${gear(84,18,10)}" fill="url(#brass)"/><circle r="62" fill="#24364a"/><circle r="56" fill="none" stroke="#9a7843" stroke-width="2"/></g>
+<g transform="translate(-58 62)"><g class="g2"><path d="${gear(26,9,7)}" fill="#8f7240"/><circle r="9" fill="#24364a"/></g></g>
+<g class="needle"><path d="M0 -112L7 0L-7 0Z" fill="#8c3d45"/></g><circle r="34" fill="url(#brass)" stroke="#7a5d30" stroke-width="2"/><text y="11" text-anchor="middle" class="dc">時</text></svg>`}
+function smooth(pts){let d=`M${pts[0][0]} ${pts[0][1]}`;for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;d+=`C${(p1[0]+(p2[0]-p0[0])/6).toFixed(1)} ${(p1[1]+(p2[1]-p0[1])/6).toFixed(1)} ${(p2[0]-(p3[0]-p1[0])/6).toFixed(1)} ${(p2[1]-(p3[1]-p1[1])/6).toFixed(1)} ${p2[0]} ${p2[1]}`}return d}
+const SCENE={jomon(){return `<image href="img/bg_jomon.jpg" x="0" y="0" width="1000" height="600" preserveAspectRatio="xMidYMid slice"/><rect width="1000" height="600" fill="url(#vig)"/><defs><radialGradient id="vig" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#1b212c" stop-opacity="0"/><stop offset="1" stop-color="#1b212c" stop-opacity=".45"/></radialGradient></defs>`}};
+const LAND=[[[141.2,41.4],[140.0,42.0],[139.9,43.2],[141.4,43.4],[141.6,45.3],[142.0,45.5],[143.3,44.3],[145.3,44.3],[145.8,43.4],[144.0,42.9],[143.3,42.0],[141.8,42.6]],
+ [[141.4,41.4],[140.0,40.8],[139.9,40.0],[140.0,39.0],[139.5,38.3],[138.8,37.8],[137.3,37.5],[136.8,37.3],[136.7,36.6],[136.0,35.7],[135.4,35.6],[134.0,35.5],[133.0,35.5],[132.0,35.2],[131.0,34.4],[131.0,34.0],[132.2,33.9],[133.0,34.3],[134.2,34.6],[135.2,34.6],[135.1,34.3],[135.4,33.6],[136.0,33.5],[136.8,34.3],[137.0,34.7],[138.2,34.6],[138.8,34.6],[139.2,35.2],[139.8,34.9],[140.0,35.6],[140.8,35.7],[140.6,36.3],[141.0,37.0],[141.0,38.3],[141.6,38.9],[142.0,39.6],[141.4,40.6]],
+ [[132.4,33.0],[132.6,33.9],[133.5,34.3],[134.6,34.2],[134.7,33.8],[134.2,33.3],[133.2,33.3],[132.9,32.8]],
+ [[130.9,33.9],[129.8,33.5],[129.6,33.2],[129.8,32.7],[130.2,32.3],[130.1,31.4],[130.6,31.0],[131.0,31.3],[131.4,31.4],[131.7,32.5],[131.9,32.9],[131.5,33.6]]];
+const prj=([lo,la])=>[(lo-128.5)*40,(46.2-la)*40];
+function mapSvg(pins,extra='',sc=1.45){return `<svg viewBox="0 0 700 620"><rect width="700" height="620" fill="#c9d3cf"/><g fill="#efe6d4" stroke="#8b8478" stroke-width="2" stroke-linejoin="round">${LAND.map(poly=>`<path d="M${poly.map(p=>prj(p).map(v=>v.toFixed(1)).join(' ')).join('L')}Z"/>`).join('')}</g>${extra}${pins.map(p=>{const[x,y]=prj(SITES[p.id].ll);return `<g class="pin ${p.cls||''}" data-i="${p.i??''}" data-id="${p.id}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${sc})"><circle cy="-22" r="26" fill="transparent"/><path d="M0 0C-10 -14 -14 -20 -14 -27A14 14 0 1 1 14 -27C14 -20 10 -14 0 0Z" fill="${p.col||'#3e5b74'}" stroke="#f3ecdf" stroke-width="2"/><text y="-21" text-anchor="middle">${p.lb||''}</text>${p.name?`<text x="18" y="-24" style="fill:#2d2a26;font-size:12px;paint-order:stroke;stroke:#efe6d4;stroke-width:4px">${p.name}</text>`:''}</g>`}).join('')}</svg>`}
+
+
+/* ================= 時代データの読み込み ================= */
+const photoScene=src=>`<image href="${src}" x="0" y="0" width="1000" height="600" preserveAspectRatio="xMidYMid slice"/><rect width="1000" height="600" fill="url(#vig)"/><defs><radialGradient id="vig" cx=".5" cy=".45" r=".75"><stop offset=".55" stop-color="#1b212c" stop-opacity="0"/><stop offset="1" stop-color="#1b212c" stop-opacity=".45"/></radialGradient></defs>`;
+for(const w in WORDS)if(!WORDS[w][2])WORDS[w][2]='jomon';
+for(const k in SITES)if(!SITES[k].era)SITES[k].era='jomon';
+NEWS.jomon.you='未来{みらい}の旅人{たびびと}{NAME}さん、女王{じょおう}に認{みと}められる';
+const POOLNAME={T:'達人の間'};SQ.jomon.forEach((q,i)=>POOLNAME[q.pool]=`縄文・弥生 マス${i+1} ${P(q.name)}`);
+{const EXT=window.ERA_DATA||{};for(const e of ERAS){const d=EXT[e.id];if(!d)continue;const id=e.id;e.ready=true;
+ for(const k in d.looks||{})LOOKS[k]=mkLook(d.looks[k]);
+ Object.assign(CARDS,d.cards||{});Object.assign(NPC,d.npcs||{});Object.assign(PHOTO,d.photos||{});Object.assign(W2P,d.w2p||{});
+ for(const w in d.words||{})WORDS[w]=[...d.words[w],id];for(const k in d.sites||{})SITES[k]={...d.sites[k],era:id};
+ for(const k in d.pools){POOL[id+'_'+k]=d.pools[k];d.pools[k].forEach(q=>q._era=id);d.pools[k].forEach(q=>QB[q.id]=q)}
+ (d.tatsu||[]).forEach(q=>{q._era=id;POOL.T.push(q);QB[q.id]=q});
+ SQ[id]=d.sq.map((s,i)=>{const pk=id+'_'+s.pool;POOLNAME[pk]=`${P(e.name)} マス${i+1} ${P(s.name)}`;return {...s,pool:pk}});
+ BOSS[id]=d.boss;NEWS[id]=d.news;if(d.title)TITLES.push([id,d.title[0],d.title[1],m=>m.cleared[id]]);
+ SCENE[id]=()=>photoScene(d.bg);e.bgcr=d.bgcr}}
+/* ================= UI共通 ================= */
+function toast(html,ms=2600){const t=document.createElement('div');t.className='toast';t.innerHTML=html;$('#toasts').appendChild(t);setTimeout(()=>{t.style.transition='opacity .4s';t.style.opacity=0;setTimeout(()=>t.remove(),400)},ms)}
+function modal(html,cls='',setup){return new Promise(res=>{const m=document.createElement('div');m.className='modal '+cls;m.innerHTML=`<div class="sheet">${html}</div>`;document.body.appendChild(m);requestAnimationFrame(()=>m.classList.add('on'));
+ const close=v=>{m.classList.remove('on');setTimeout(()=>m.remove(),260);res(v)};m.addEventListener('click',e=>{const b=e.target.closest('[data-v]');if(b){sfx('tap');close(b.dataset.v)}});if(setup)setup(m,close)})}
+function talk(look,name,lines,last='ちょうせんする！',cls='',sub=''){return modal(`<div class="talk">${face(look)}<div class="tb">${sub?`<div class="sqh">${R(sub)}</div>`:''}<div class="tn">${R(name)}</div><div class="tt" id="tt"></div><div class="row" style="justify-content:flex-end"><button class="btn" data-v="0">もどる</button><button class="btn main" id="tnext"></button></div></div></div>`,cls,(m,close)=>{let i=0;const tt=m.querySelector('#tt'),nb=m.querySelector('#tnext');
+ const draw=()=>{tt.innerHTML=R(lines[i]);nb.innerHTML=R(i<lines.length-1?'つぎへ　▶':last)};draw();nb.onclick=()=>{sfx('tap');if(i<lines.length-1){i++;draw()}else close('1')}})}
+function checkTitles(){for(const[id,n,,f]of TITLES){if(!me.titles[id]&&f(me)){me.titles[id]=Date.now();me.ctitle=id;sfx('star');toast(R(`称号{しょうごう}「${n}」を手{て}に入{い}れた！`),3200)}}save()}
+const curTitle=()=>{const t=TITLES.find(x=>x[0]===me.ctitle);return t?t[1]:'見習{みなら}いの旅人{たびびと}'};
+const clearedN=p=>ERAS.filter(e=>p.cleared[e.id]).length;
+const eraOpen=i=>ERAS[i].ready&&(i===0||me.teacher||me.all||me.cleared[ERAS[i-1].id]);
+const tatsuOpen=()=>me.teacher||me.tatsu||ERAS.every(e=>me.cleared[e.id]);
+
+/* ================= 旅人選び ================= */
+function renderProfiles(){show('sProfile');bgm(null);$('#logo').innerHTML=dialSvgSafe();$('#pq').innerHTML=R('旅人{たびびと}をえらんでね');
+ $('#plist').innerHTML=D.profiles.map((p,i)=>`<button class="pbtn" data-i="${i}"><span class="pn">${esc(p.name)}</span><span class="pm">${R(`${clearedN(p)}時代{じだい}クリア・カード${Object.keys(p.cards).length}枚{まい}`)}</span></button>`).join('')||`<p class="muted" style="grid-column:1/-1;text-align:center">${R('まだ旅人{たびびと}がいません。下{した}に名前{なまえ}を入{い}れて旅{たび}を始{はじ}めよう。')}</p>`;
+ $('#pnewbtn').innerHTML=R('旅{たび}に出{で}る');$('#tholdl').innerHTML=R('先生用{せんせいよう}（パスワード）')}
+function dialSvgSafe(){const m=me;me=me||blank('');const s=dialSvg();me=m;return s}
+$('#plist').addEventListener('click',e=>{const b=e.target.closest('.pbtn');if(!b)return;ac();sfx('tap');D.cur=+b.dataset.i;me=fix(D.profiles[D.cur]);save();enterHome()});
+$('#pform').addEventListener('submit',e=>{e.preventDefault();const n=$('#pname').value.trim().slice(0,10);if(!n){toast(R('名前{なまえ}を入{い}れてね'));return}ac();sfx('get');D.profiles.push(blank(n));D.cur=D.profiles.length-1;me=D.profiles[D.cur];$('#pname').value='';save();enterHome()});
+$('#thold').onclick=()=>{ac();sfx('tap');tLogin()};
+function pwModal(title,sub,two){return modal(`<h2 style="font-size:24px">${R(title)}</h2><p style="margin:6px 0 12px">${R(sub)}</p><form id="pwf"><input id="pw1" type="password" autocomplete="off" placeholder="パスワード" style="width:100%;min-height:52px;border-radius:12px;border:1px solid #b49b6e;background:#fff;padding:0 16px;font:inherit;font-size:20px">${two?'<input id="pw2" type="password" autocomplete="off" placeholder="もう一度" style="width:100%;min-height:52px;border-radius:12px;border:1px solid #b49b6e;background:#fff;padding:0 16px;font:inherit;font-size:20px;margin-top:10px">':''}<p id="pwe" style="color:var(--enji);min-height:1.5em;margin:6px 0 0;font-weight:700"></p><div class="row"><button class="btn" type="button" data-v="">やめる</button><button class="btn main" type="submit">OK</button></div></form>`,'',(m,close)=>{const f=m.querySelector('#pwf');setTimeout(()=>m.querySelector('#pw1').focus(),100);
+ f.onsubmit=e=>{e.preventDefault();const a=m.querySelector('#pw1').value,b=two?m.querySelector('#pw2').value:a,er=m.querySelector('#pwe');if(a.length<4){er.textContent='4文字以上で入れてください';return}if(a!==b){er.textContent='2回の入力がちがいます';return}close(a)}})}
+const hashPw=p=>{let h=5381;for(const c of 'rtt:'+p)h=(h*33^c.charCodeAt(0))>>>0;return h.toString(36)};
+async function tLogin(){if(!D.tpw){const p=await pwModal('先生用{せんせいよう}パスワードを決{き}める','はじめて使{つか}うときだけです。子{こ}どもに知{し}られないものにしてください（4文字{もじ}以上{いじょう}）。',true);if(!p)return;D.tpw=hashPw(p);save();toast('パスワードを設定しました')}
+ else{const p=await pwModal('先生用{せんせいよう}','パスワードを入{い}れてください。',false);if(!p)return;if(hashPw(p)!==D.tpw){sfx('ng');toast('パスワードがちがいます');return}}
+ sfx('chime');const v=await modal(`<h2 style="font-size:26px">${R('先生用{せんせいよう}メニュー')}</h2><p>${R('先生{せんせい}として遊{あそ}ぶと、すべての時代{じだい}・すべてのマス・達人{たつじん}の間{ま}に、順番{じゅんばん}に関係{かんけい}なく挑戦{ちょうせん}できます。先生{せんせい}の記録{きろく}は子{こ}どもの一覧{いちらん}には入{はい}りません。')}</p><div class="row" style="flex-direction:column;align-items:stretch"><button class="btn main" data-v="play">${R('先生{せんせい}として挑戦{ちょうせん}する')}</button><button class="btn" data-v="admin">${R('子{こ}どもの記録{きろく}を見{み}る・管理{かんり}する')}</button><button class="btn" data-v="">${R('もどる')}</button></div>`);
+ if(v==='play'){D.teacher=fix(D.teacher||blank('先生'));const t=D.teacher;t.teacher=true;Object.keys(CARDS).forEach(id=>{if(!t.cards[id])t.cards[id]={xp:6}});Object.keys(WORDS).forEach(w=>t.words[w]=1);Object.keys(SITES).forEach(x=>t.sites[x]=1);TITLES.forEach(x=>{if(!t.titles[x[0]])t.titles[x[0]]=1});me=t;save();enterHome('debug')}else if(v==='admin')openTeacher()}
+
+/* ================= ホーム ================= */
+const TABS=[['travel','旅','たび'],['emaki','巻','絵巻{えまき}'],['cards','札','カード'],['words','辞','ことば'],['map','図','地図{ちず}'],['repair','修','修理{しゅうり}'],['record','記','記録{きろく}']];
+let tab='travel';
+function enterHome(t){show('sHome');bgm('home');document.body.classList.toggle('nofuri',!D.set.furi);updToggles();renderHome(t||'travel')}
+function updToggles(){$('#tgBgm').classList.toggle('off',!D.set.bgm);$('#tgSe').classList.toggle('off',!D.set.se);$('#tgFuri').classList.toggle('off',!D.set.furi);$('#tgBgm').innerHTML=R('音楽{おんがく}');$('#tgSe').innerHTML=R('効果音{こうかおん}');$('#tgWho').innerHTML=R('旅人{たびびと}をかえる')}
+$('#tgBgm').onclick=()=>{D.set.bgm=!D.set.bgm;save();updToggles();if(D.set.bgm){const w=AU.want;AU.cur=null;bgm(w)}else{stopBgm();AU.cur=null}};
+$('#tgSe').onclick=()=>{D.set.se=!D.set.se;save();updToggles();sfx('tap')};
+$('#tgFuri').onclick=()=>{D.set.furi=!D.set.furi;save();updToggles();document.body.classList.toggle('nofuri',!D.set.furi)};
+$('#tgWho').onclick=()=>{sfx('tap');renderProfiles()};
+function renderHome(t){tab=t;const TB=me.teacher?[...TABS,['debug','検','確認{かくにん}']]:TABS;$('#tabs').style.gridTemplateColumns=`repeat(${TB.length},minmax(0,1fr))`;$('#tabs').innerHTML=TB.map(([id,g,l])=>`<button data-t="${id}" class="${id===t?'on':''}"><b>${g}</b>${R(l)}</button>`).join('');
+ const f={travel:paneTravel,emaki:paneEmaki,cards:paneCards,words:paneWords,map:paneMap,repair:paneRepair,record:paneRecord,debug:paneDebug}[t];$('#pane').innerHTML=f();$('#pane').scrollTop=0;bindPane(t)}
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sfx('tap');renderHome(b.dataset.t)});
+function paneTravel(){return `<div class="travel"><div class="dialbox">${dialSvg()}<div class="who"><b>${esc(me.name)}</b><span>${R(me.teacher?'先生用{せんせいよう}（すべて挑戦{ちょうせん}できます）':curTitle())}</span></div><p class="lead">${R('行{い}きたい時代{じだい}の扉{とびら}をタップしよう')}</p></div>
+ <div class="doors">${ERAS.map((e,i)=>{const op=eraOpen(i),pos=me.pos[e.id]||0,cl=me.cleared[e.id];return `<button class="door ${op?'':'lock'} ${cl?'clr':''} ${P(e.name).length>5?'long':''}" data-e="${i}" style="background:linear-gradient(170deg,${e.col},#1f2833)"><span class="dn">${R(e.name)}</span><span class="dy">${R(e.lb)}</span>${e.ready?`<span class="pips">${Array.from({length:8},(_,k)=>`<i class="${k<pos?'f':''}"></i>`).join('')}</span>`:''}${!e.ready?`<span class="lk">${R('じゅんび中{ちゅう}')}</span>`:!op?`<span class="lk">${R('とじている')}</span>`:''}</button>`}).join('')}
+ <button class="door tatsu ${tatsuOpen()?'':'lock'}" data-e="t"><span class="dn">${R('達人{たつじん}の間{ま}')}</span><span class="dy">${R(dan(me.tok))}</span>${tatsuOpen()?'':`<span class="lk">${R('全時代{ぜんじだい}クリアで開{ひら}く')}</span>`}</button></div></div>`}
+function bindPane(t){
+ if(t==='travel')$$('.door').forEach(d=>d.onclick=()=>{const v=d.dataset.e;if(v==='t'){if(!tatsuOpen()){sfx('ng');toast(R('すべての時代{じだい}のボスをたおすと開{ひら}くよ'));return}sfx('tap');startTatsu();return}
+  const i=+v,e=ERAS[i];if(!e.ready){sfx('ng');toast(R('この時代{じだい}はじゅんび中{ちゅう}です'));return}if(!eraOpen(i)){sfx('ng');toast(R('前{まえ}の時代{じだい}をクリアすると開{ひら}くよ'));return}warp(i)});
+ if(t==='cards')$$('.cgrid [data-c]').forEach(c=>c.onclick=()=>{sfx('tap');showCard(c.dataset.c)});
+ if(t==='words')$$('.wd[data-w]').forEach(w=>w.onclick=()=>{sfx('tap');const x=WORDS[w.dataset.w];modal(`<h2 style="font-size:28px">${R(x[0])}</h2>${W2P[w.dataset.w]?photo(W2P[w.dataset.w],1):''}<p style="font-size:18px;line-height:1.9">${R(x[1])}</p><div class="row"><button class="btn main" data-v="1">とじる</button></div>`)});
+ if(t==='map')$$('#pane .pin,#pane [data-site]').forEach(p=>p.onclick=()=>{sfx('tap');const id=p.dataset.id||p.dataset.site,s=SITES[id];$('#minfo').innerHTML=me.sites[id]?`<h3>${R(s.n)}</h3><p class="muted" style="margin:2px 0">${R(s.pf)}</p><p style="line-height:1.9">${R(s.d)}</p>`:`<h3>？？？</h3><p>${R('まだ見{み}つけていない場所{ばしょ}。地図{ちず}の問題{もんだい}で見{み}つけよう。')}</p>`});
+ if(t==='record')$$('[data-news]').forEach(b=>b.onclick=()=>{sfx('tap');showNews(b.dataset.news)});
+ if(t==='repair'){const b=$('#repBtn');if(b)b.onclick=()=>{sfx('tap');startRepair()}}
+ if(t==='emaki')bindEmaki();if(t==='debug')bindDebug()}
+
+/* ---- カード ---- */
+function cardHtml(id){const c=CARDS[id],o=me.cards[id],st=o?star(o.xp):0;if(!o)return `<div class="card lockc"><div class="cin">？</div></div>`;
+ return `<div class="card r${c.r}${c.gold?' gold':''}"><div class="cin"><div class="cimg">${face(c.look)}</div><div class="cname">${R(c.name)}</div><div class="ctitle">${R(c.title)}</div><div class="cstar">${'★'.repeat(st)}${'☆'.repeat(3-st)}</div></div></div>`}
+function paneCards(){const ids=Object.keys(CARDS),n=ids.filter(i=>me.cards[i]).length;return `<div class="panehead"><h2>${R('偉人{いじん}カード')}</h2><p>${R(`${ids.length}枚{まい}中{ちゅう} ${n}枚{まい}。タップすると裏{うら}も見{み}られるよ。関係{かんけい}する問題{もんだい}に正解{せいかい}すると★が上{あ}がり、裏{うら}のひみつが増{ふ}えていく。`)}</p></div><div class="cgrid">${ids.map(id=>`<div data-c="${id}">${cardHtml(id)}</div>`).join('')}</div>`}
+function showCard(id){const c=CARDS[id],o=me.cards[id];if(!o){toast(R('まだ出会{であ}っていない人物{じんぶつ}だよ'));return}const st=star(o.xp),nx=st===1?3:st===2?6:0;
+ modal(`<div class="flip" id="flip"><div class="fi">${cardHtml(id)}<div class="card cb r${c.r}${c.gold?' gold':''}"><div class="cin"><h3>${R(c.name)}</h3>${c.back.map((b,k)=>k<st?`<div class="bl"><em>★${k+1}</em><span>${R(b)}</span></div>`:`<div class="bl lk"><em>★${k+1}</em><span>${R('★'+(k+1)+'で解放{かいほう}')}</span></div>`).join('')}<p class="muted" style="margin:auto 0 0;font-size:13px">${R(nx?`あと${nx-o.xp}問{もん}正解{せいかい}で★${st+1}`:'★MAX！')}</p></div></div></div></div><p style="text-align:center;margin:12px 0 0;font-weight:700">「${R(c.line)}」</p><p class="muted" style="text-align:center;margin:4px 0 0;font-size:14px">${R('カードをタップすると裏返{うらがえ}るよ')}</p><div class="row"><button class="btn main" data-v="1">とじる</button></div>`,'',m=>{m.querySelector('#flip').onclick=()=>{sfx('tap');m.querySelector('#flip').classList.toggle('back')}})}
+
+/* ---- 絵巻 ---- */
+function paneEmaki(){const un=Object.keys(me.cards).filter(id=>!me.placed[id]&&!CARDS[id].gold);
+ return `<div class="panehead"><h2>${R('歴史{れきし}絵巻{えまき}')}</h2><p>${R('カードを、その人{ひと}が生{い}きた時代{じだい}へドラッグしてはろう（タップしてから時代{じだい}をタップしてもOK）。正{ただ}しくはると、絵巻{えまき}に色{いろ}がつくよ。')}</p></div>
+ <div class="emaki" id="emk">${ERAS.map((e,i)=>{const all=Object.keys(CARDS).filter(id=>CARDS[id].era===e.id&&!CARDS[id].gold),pl=all.filter(id=>me.placed[id]),fr=all.length?pl.length/all.length:0;
+  return `<div class="esec" data-era="${e.id}" style="filter:grayscale(${(1-fr)*.9}) sepia(${(1-fr)*.35})"><div class="art">${SCENE[e.id]?`<svg viewBox="300 0 440 600" preserveAspectRatio="xMidYMid slice">${SCENE[e.id]()}</svg>`:`<svg viewBox="0 0 260 340" preserveAspectRatio="none"><rect width="260" height="340" fill="${e.col}" opacity=".35"/><path d="M0 250Q80 210 160 240T260 230V340H0Z" fill="${e.col}" opacity=".45"/></svg>`}</div><div class="wm">${e.gl}</div><div class="en">${R(e.name)}</div><div class="meds">${pl.map(id=>`<div class="med">${face(CARDS[id].look)}<div>${R(CARDS[id].name)}</div></div>`).join('')}</div>${all.length?`<div class="cnt">${pl.length} / ${all.length}</div>`:''}</div>`}).join('')}</div>
+ <div class="tray" id="tray">${un.map(id=>`<div class="tcard" data-id="${id}">${face(CARDS[id].look)}<div>${R(CARDS[id].name)}</div></div>`).join('')||`<p class="muted">${R(Object.keys(me.cards).length?'手持{ても}ちのカードはぜんぶはったよ！すごい！':'カードを手{て}に入{い}れたら、ここに出{で}てくるよ。')}</p>`}</div>`}
+function bindEmaki(){const emk=$('#emk');let sel=null,dr=null,raf=0;
+ const place=(id,sec)=>{const era=sec.dataset.era,c=CARDS[id];if(c.era===era){me.placed[id]=1;save();sfx('chime');toast(R(`${c.name}「${c.line}」`),3000);const sl=emk.scrollLeft;renderHome('emaki');$('#emk').style.scrollBehavior='auto';$('#emk').scrollLeft=sl;checkTitles()}
+  else{sfx('ng');const a=ERAS.findIndex(e=>e.id===era),b=ERAS.findIndex(e=>e.id===c.era);toast(R(b>a?`${c.name}は、もっと新{あたら}しい時代{じだい}の人{ひと}だよ`:`${c.name}は、もっと古{ふる}い時代{じだい}の人{ひと}だよ`),3000)}};
+ $$('#tray .tcard').forEach(tc=>{tc.addEventListener('pointerdown',e=>{e.preventDefault();dr={id:tc.dataset.id,x0:e.clientX,y0:e.clientY,g:null,el:tc,x:e.clientX};tc.setPointerCapture(e.pointerId)});
+  tc.addEventListener('pointermove',e=>{if(!dr)return;dr.x=e.clientX;if(!dr.g&&Math.hypot(e.clientX-dr.x0,e.clientY-dr.y0)>8){dr.g=tc.cloneNode(true);dr.g.classList.add("dragghost");document.body.appendChild(dr.g);const loop=()=>{if(!dr)return;const r=emk.getBoundingClientRect();if(dr.x<r.left+70)emk.scrollLeft-=12;else if(dr.x>r.right-70)emk.scrollLeft+=12;raf=requestAnimationFrame(loop)};emk.style.scrollBehavior='auto';loop()}
+   if(dr.g){dr.g.style.left=e.clientX+'px';dr.g.style.top=e.clientY+'px';const el=document.elementFromPoint(e.clientX,e.clientY),s=el&&el.closest('.esec');$$('.esec').forEach(x=>x.classList.toggle('hot',x===s))}});
+  const end=e=>{if(!dr)return;cancelAnimationFrame(raf);const d=dr;dr=null;$$('.esec').forEach(x=>x.classList.remove('hot'));if(d.g){d.g.remove();const el=document.elementFromPoint(e.clientX,e.clientY),s=el&&el.closest('.esec');if(s)place(d.id,s)}else{sfx('tap');$$('#tray .tcard').forEach(x=>x.classList.toggle('sel',x===tc&&sel!==d.id));sel=sel===d.id?null:d.id;if(sel)toast(R('はりたい時代{じだい}をタップしてね'))}};
+  tc.addEventListener('pointerup',end);tc.addEventListener('pointercancel',()=>{if(dr&&dr.g)dr.g.remove();dr=null;cancelAnimationFrame(raf)})});
+ $$('.esec').forEach(s=>s.addEventListener('click',()=>{if(sel){const id=sel;sel=null;place(id,s)}}))}
+
+/* ---- ことば・地図・修理・記録 ---- */
+function paneWords(){const ids=Object.keys(WORDS),n=ids.filter(i=>me.words[i]).length;return `<div class="panehead"><h2>${R('歴史{れきし}ことば図鑑{ずかん}')}</h2><p>${R(`${ids.length}こ中{ちゅう} ${n}こ。問題{もんだい}で出会{であ}ったことばが集{あつ}まるよ。タップで意味{いみ}を見{み}よう。`)}</p></div>${ERAS.filter(e=>ids.some(i=>WORDS[i][2]===e.id)).map(e=>`<div class="sec" style="padding-bottom:0"><h3>${R(eraLabel(e))}</h3></div><div class="wgrid" style="padding-top:0">${ids.filter(i=>WORDS[i][2]===e.id).map(id=>me.words[id]?`<button class="wd" data-w="${id}">${R(WORDS[id][0])}</button>`:`<div class="wd lk">？？？</div>`).join('')}</div>`).join('')}`}
+function paneMap(){const ids=Object.keys(SITES),n=ids.filter(i=>me.sites[i]).length;return `<div class="panehead"><h2>${R('日本{にほん}地図{ちず}')}</h2><p>${R(`${ids.length}か所{しょ}中{ちゅう} ${n}か所{しょ}発見{はっけん}。ピンをタップしてみよう。`)}</p></div><div class="mapwrap"><div class="mapbox">${mapSvg(ids.map(id=>me.sites[id]?{id,col:ERAS.find(e=>e.id===SITES[id].era)?.col||'#8c3d45'}:{id,col:'#9a948a',lb:'?'}),'',.8)}</div><div class="minfo" id="minfo"><h3>${R('遺跡{いせき}をさがそう')}</h3><p style="line-height:1.9">${R('地図{ちず}の問題{もんだい}に答{こた}えると、その場所{ばしょ}が地図{ちず}にのるよ。京都{きょうと}・奈良{なら}・鎌倉{かまくら}・江戸{えど}と、都{みやこ}が移{うつ}っていく様子{ようす}も、時代{じだい}が増{ふ}えると見{み}えてくるよ。')}</p></div><div class="sec" style="padding:0">${ERAS.map(e=>{const l=ids.filter(i=>SITES[i].era===e.id&&me.sites[i]);return l.length?`<p style="margin:10px 0 4px;font-weight:700;color:${e.col}">${R(eraLabel(e))}</p><div class="row" style="justify-content:flex-start;margin-top:0;gap:6px">${l.map(i=>`<button class="btn" data-site="${i}" style="min-height:40px;font-size:15px">${R(SITES[i].n)}</button>`).join('')}</div>`:''}).join('')}</div></div>`}
+function paneRepair(){const n=me.nigate.length;return `<div class="repair"><svg viewBox="-120 -120 240 240"><circle r="116" fill="#24364a"/><g class="g1"><path d="${gear(70,14,12)}" fill="${n?'#7a6a55':'#b08a4f'}"/><circle r="40" fill="#24364a"/></g><g transform="translate(62 58)"><g class="g2"><path d="${gear(30,9,8)}" fill="${n?'#6b5d4c':'#9a7843'}"/><circle r="10" fill="#24364a"/></g></g>${n?'<path d="M-30 -20l14 10 -8 6 16 12" stroke="#d9a35a" stroke-width="4" fill="none"/><circle cx="-40" cy="-40" r="4" fill="#d9a35a"/>':''}<text y="10" text-anchor="middle" style="font-family:var(--mincho);font-size:30px;fill:#efe6d4;font-weight:800">${n?'故':'良'}</text></svg>
+ <div><h2 style="font-size:28px">${R('タイムマシンの修理{しゅうり}')}</h2><p style="line-height:1.9">${R(n?`まちがえた問題{もんだい}が<b>${n}こ</b>、タイムマシンのこわれた部品{ぶひん}になっているよ。にがて問題{もんだい}に正解{せいかい}すると、部品{ぶひん}が直{なお}るよ。`:'にがて問題{もんだい}はゼロ！タイムマシンは絶好調{ぜっこうちょう}だ。')}</p>
+ ${n?`<ol class="nlist">${me.nigate.slice(0,8).map(id=>QB[id]?`<li>${R(QB[id].q)}</li>`:'').join('')}</ol><button class="btn main" id="repBtn">${R('修理{しゅうり}する（最大{さいだい}5問{もん}）')}</button>`:''}<p class="muted" style="font-size:14px">${R(`これまでの修理{しゅうり}：${me.rep}回{かい}`)}</p></div></div>`}
+function paneRecord(){const s=me.st,rate=s.ans?Math.round(s.ok/s.ans*100):0;return `<div class="panehead"><h2>${R(`${esc(me.name)}の旅{たび}の記録{きろく}`)}</h2></div>
+ <div class="stats"><div class="stat"><b>${clearedN(me)}</b><span>${R('クリアした時代{じだい}')}</span></div><div class="stat"><b>${s.ok}</b><span>${R('正解{せいかい}した問題{もんだい}')}</span></div><div class="stat"><b>${rate}%</b><span>${R('正答率{せいとうりつ}')}</span></div><div class="stat"><b>${Object.keys(me.cards).length}</b><span>${R('偉人{いじん}カード')}</span></div><div class="stat"><b>${Object.keys(me.words).length}</b><span>${R('ことば')}</span></div><div class="stat"><b style="font-size:24px">${R(dan(me.tok))}</b><span>${R('達人{たつじん}の間{ま}')}</span></div></div>
+ <div class="sec"><h3>${R('時代{じだい}新聞{しんぶん}')}</h3>${Object.keys(NEWS).filter(k=>me.cleared[k]||me.teacher).map(k=>`<button class="btn" data-news="${k}">${R(NEWS[k].title)}</button>`).join(' ')||`<p class="muted">${R('時代{じだい}をクリアすると新聞{しんぶん}が発行{はっこう}されるよ。')}</p>`}</div>
+ <div class="sec"><h3>${R('称号{しょうごう}')}</h3><div class="tgrid">${TITLES.map(([id,n,c])=>`<div class="tit ${me.titles[id]?'':'lk'}"><b>${me.titles[id]?R(n):'？？？'}</b><span>${R(c)}</span></div>`).join('')}</div></div><div class="sec"><h3>${R('写真{しゃしん}の出典{しゅってん}')}</h3><p class="muted" style="font-size:14px;line-height:1.9">${Object.values(PHOTO).map(p=>`${P(p.n)}（${P(p.f)}）…${P(p.cr||'東京国立博物館所蔵／出典：ColBase（国立文化財機構所蔵品統合検索システム） https://colbase.nich.go.jp/')}`).join('<br>')}<br>背景：三内丸山遺跡 … 写真：663highland（CC BY 2.5 https://creativecommons.org/licenses/by/2.5/ ）／ウィキメディア・コモンズ<br>背景：吉野ヶ里遺跡 … 写真：Saigen Jiro（CC0）／ウィキメディア・コモンズ${ERAS.filter(e=>e.bgcr).map(e=>`<br>背景（${P(e.name)}）：${P(e.bgcr)}`).join('')}</p></div>`}
+function showNews(k){const n=NEWS[k],s=me.st;return modal(`<div class="news"><div class="mast"><h2>${R(n.title)}</h2><div><span>${R(n.date)}</span><span>${R('歴史{れきし}タイムトラベル社{しゃ}')}</span></div></div><div class="cols">${n.arts.map(a=>`<div><h4>${R(a[0])}</h4><p>${R(a[1])}</p></div>`).join('')}</div><div class="you"><h4>${R((n.you||'未来{みらい}の旅人{たびびと}{NAME}さん、この時代{じだい}をクリア').replace('{NAME}',esc(me.name)))}</h4><p>${R(`これまでに${s.ok}問{もん}に正解{せいかい}。集{あつ}めたことばは${Object.keys(me.words).length}こ。`)}</p></div></div><div class="row"><button class="btn main" data-v="1">とじる</button></div>`,'wide')}
+
+/* ================= ワープ ================= */
+async function warp(i){const e=ERAS[i];show('sWarp');bgm(null);sfx('warp');const cv=$('#wcv'),c=cv.getContext('2d'),dpr=Math.min(2,devicePixelRatio||1);const W=cv.width=innerWidth*dpr,H=cv.height=innerHeight*dpr;c.fillStyle='#181e2a';c.fillRect(0,0,W,H);
+ const st=Array.from({length:260},()=>({a:Math.random()*6.283,z:Math.random()*.95+.05,h:Math.random()}));const dur=RM?1200:6500,t0=performance.now(),yEl=$('#wYear');$('#wMsg').innerHTML='';const M=Math.min(W,H);
+ await new Promise(res=>{const f=now=>{const p=Math.min(1,(now-t0)/dur),sp=.003+.017*Math.sin(p*Math.PI);c.fillStyle='rgba(24,30,42,.3)';c.fillRect(0,0,W,H);
+  for(const s of st){const z0=s.z;s.z-=sp;if(s.z<=.03){s.z=1;s.a=Math.random()*6.283;continue}const r0=M*.06/z0,r1=M*.06/s.z;c.strokeStyle=s.h<.6?`rgba(217,195,145,${.9-s.z*.6})`:`rgba(150,182,190,${.8-s.z*.5})`;c.lineWidth=(1-s.z)*3.5*dpr+.5;c.beginPath();c.moveTo(W/2+Math.cos(s.a)*r0,H/2+Math.sin(s.a)*r0);c.lineTo(W/2+Math.cos(s.a)*r1,H/2+Math.sin(s.a)*r1);c.stroke()}
+  const ep=p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;yEl.innerHTML=R(fmtY(Math.round(2026+(e.year-2026)*ep)));if(p<1)requestAnimationFrame(f);else res()};requestAnimationFrame(f)});
+ const fl=$('#wFlash');fl.classList.remove('on');void fl.offsetWidth;fl.classList.add('on');sfx('chime');$('#wMsg').innerHTML=R(eraLabel(e)+'に到着{とうちゃく}！');await sleep(RM?600:2600);openBoard(i)}
+
+/* ================= すごろく盤 ================= */
+const SQPOS=[[110,500],[235,438],[355,492],[470,410],[590,470],[705,398],[815,462],[915,335]];
+const SQSTY={quiz:['問','#3e5b74'],treasure:['宝','#b08a4f'],person:['人','#7d8c55'],warp:['時','#5f7f80'],boss:['王','#8c3d45']};
+let B=0;
+function openBoard(i,from){B=i;const e=ERAS[i];show('sBoard');{const w=$('.bwrap');$('#board').setAttribute('preserveAspectRatio',w.clientWidth/w.clientHeight>1.35?'xMidYMid slice':'xMidYMid meet')}bgm(e.id);$('#bBack').innerHTML=R('◀ タイムマシン');$('#bTitle').innerHTML=R(eraLabel(e));renderBoard(from);
+ if(!me.seen[e.id]){me.seen[e.id]=1;save();setTimeout(()=>sqTap(0),700)}}
+function renderBoard(from){const e=ERAS[B],sqs=SQ[e.id],pos=me.pos[e.id]||0,cl=me.cleared[e.id];const tp=k=>SQPOS[Math.min(k,7)];const start=from!=null?tp(from):tp(pos);
+ $('#bProg').innerHTML=R(cl?'クリア済{ず}み！ どのマスも復習{ふくしゅう}できるよ':`マス ${Math.min(pos+1,8)} / 8`);$('#bHint').innerHTML=R(me.teacher?'先生{せんせい}モード：どのマスからでも挑戦{ちょうせん}できます':cl?'マスをタップすると、もう一度{いちど}挑戦{ちょうせん}できるよ':'光{ひか}っているマスをタップしよう');
+ $('#board').innerHTML=SCENE[e.id]()+`<path d="${smooth(SQPOS)}" fill="none" stroke="#f3ecdf" stroke-width="22" stroke-linecap="round" opacity=".75"/><path d="${smooth(SQPOS)}" fill="none" stroke="#b49b6e" stroke-width="3" stroke-dasharray="2 12" stroke-linecap="round"/>`+
+ sqs.map((s,i)=>{const[x,y]=SQPOS[i],[g,col]=SQSTY[s.type],big=s.type==='boss';return `<g class="sq ${i===pos&&!cl?'cur':''} ${i>pos&&!me.teacher?'lk':''}" data-i="${i}" transform="translate(${x} ${y})"><ellipse cy="${big?44:36}" rx="${big?46:38}" ry="9" fill="#000" opacity=".15"/><circle class="pulse" r="${big?48:40}"/><circle r="${big?44:36}" fill="#f3ecdf" stroke="${col}" stroke-width="${big?8:6}"/>${big?'<circle r="34" fill="none" stroke="#8c3d45" stroke-width="1.5" stroke-dasharray="3 4"/>':''}<text y="11" text-anchor="middle" class="sqg" ${big?'style="font-size:36px;fill:#8c3d45"':''}>${g}</text><circle cx="${big?-34:-28}" cy="${big?-34:-28}" r="13" fill="${col}"/><text class="num" x="${big?-34:-28}" y="${big?-29:-23}" text-anchor="middle">${i+1}</text>${i<pos||cl?`<g transform="translate(${big?32:26} ${big?-32:-26})"><circle r="13" fill="#8c3d45" stroke="#f3ecdf" stroke-width="2"/><path d="M-6 0l4 4 8-8" stroke="#f3ecdf" stroke-width="3" fill="none" stroke-linecap="round"/></g>`:''}</g>`}).join('')+
+ `<g id="trav" class="trav" transform="translate(${start[0]} ${start[1]-46})"><g transform="scale(1.35)"><ellipse cx="0" cy="6" rx="14" ry="4" fill="#000" opacity=".2"/><path d="M-12 4Q-15 -24 0 -30Q15 -24 12 4Z" fill="#3e5b74"/><path d="M-4 -26L0 4L4 -26" stroke="#24364a" stroke-width="1.5" fill="none"/><circle cx="0" cy="-34" r="8" fill="#ecd2b8"/><ellipse cx="0" cy="-40" rx="17" ry="5" fill="#b08a4f"/><path d="M-11 -41L0 -51L11 -41Z" fill="#c49e5e"/>${cl?'<path d="M10 -20L10 -60" stroke="#6b5640" stroke-width="2"/><path d="M10 -60L30 -54L10 -48Z" fill="#8c3d45"/>':''}</g></g>`;
+ $$('#board .sq').forEach(g=>g.onclick=()=>sqTap(+g.dataset.i));
+ if(from!=null&&from!==pos){const to=tp(pos);setTimeout(()=>{sfx('step');$('#trav').setAttribute('transform',`translate(${to[0]} ${to[1]-46})`);setTimeout(()=>sfx('step'),500)},350)}}
+$('#bBack').onclick=()=>{sfx('tap');enterHome('travel');maybeBroke()};
+async function sqTap(i){const e=ERAS[B],sq=SQ[e.id][i],pos=me.pos[e.id]||0;if(i>pos&&!me.teacher){sfx('ng');toast(R('まだ進{すす}めないよ。光{ひか}っているマスから挑戦{ちょうせん}しよう'));return}sfx('tap');
+ const n=NPC[sq.npc],again=i<pos||me.cleared[e.id]||(me.teacher&&i>pos);const v=await talk(n.look,n.n,again?['もう一度{いちど}、挑戦{ちょうせん}してみるかい？','くり返{かえ}すほど、カードの★も上{あ}がっていくよ。']:sq.talk,'ちょうせんする！','',`マス${i+1}　${sq.name}`);
+ if(v!=='1')return;startQuiz({mode:sq.type==='boss'?'boss':'square',era:B,sq:i,list:shuf(POOL[sq.pool]).slice(0,5)})}
+
+/* ================= 問題 ================= */
+let Q=null;
+async function startQuiz(o){Q=Object.assign({i:0,ok:0,hints:2,gw:[],gs:[]},o);const boss=Q.mode==='boss',tat=Q.mode==='tatsu';const el=$('#sQuiz');el.classList.toggle('boss',boss);el.classList.toggle('tatsu',tat);show('sQuiz');
+ $('#qbg').innerHTML=Q.era!=null?`<svg viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">${SCENE[ERAS[Q.era].id]()}</svg>`:'';$('#qQuit').innerHTML='やめる';
+ const sq=Q.era!=null&&Q.sq!=null?SQ[ERAS[Q.era].id][Q.sq]:null;$('#qTitle').innerHTML=R(tat?'達人{たつじん}の間{ま}':Q.mode==='debug'?'問題{もんだい}の確認{かくにん}（先生用{せんせいよう}）':Q.mode==='repair'?'タイムマシンの修理{しゅうり}':`マス${Q.sq+1}　${sq.name}`);
+ if(boss){const b=BOSS[ERAS[Q.era].id];Q.boss=b;$('#qNpc').innerHTML=`${face(b.look)}<div class="nm">${R(b.name)}</div><div class="bub" id="qBub">${R('…さあ、答{こた}えてみよ。')}</div>`;bgm('boss');sfx('gong');$('#qPaper').style.visibility='hidden';
+  const bv=await talk(b.look,b.name,b.intro,'受{う}けて立{た}つ！','dark','ボス戦{せん}');$('#qPaper').style.visibility='';if(bv!=='1'){openBoard(Q.era);return}}
+ else if(tat){$('#qNpc').innerHTML=`${face('elder')}<div class="nm">${R(NPC.okina.n)}</div><div class="bub" id="qBub">${R('ここは達人{たつじん}の間{ま}。中学{ちゅうがく}で学{まな}ぶことも出{で}るぞ。')}</div>`;bgm('tatsu')}
+ else{const n=NPC[Q.mode==='repair'||Q.mode==='debug'?'jii':sq.npc];$('#qNpc').innerHTML=`${face(n.look)}<div class="nm">${R(n.n)}</div><div class="bub" id="qBub">${R(Q.mode==='repair'?'にがてを直{なお}して、タイムマシンを修理{しゅうり}じゃ！':'がんばって！ヒントもあるよ。')}</div>`;if(Q.mode==='repair')bgm('home')}
+ renderQ()}
+$('#qQuit').onclick=async()=>{sfx('tap');const v=await modal(`<h2 style="font-size:24px">${R('挑戦{ちょうせん}をやめる？')}</h2><p>${R('ここまでの答{こた}えは記録{きろく}されるよ。')}</p><div class="row"><button class="btn" data-v="0">つづける</button><button class="btn enji" data-v="1">やめる</button></div>`);if(v==='1')leaveQuiz()};
+function leaveQuiz(){if(Q.mode==='square'||Q.mode==='boss')openBoard(Q.era);else enterHome(Q.mode==='repair'?'repair':Q.mode==='debug'?'debug':'travel')}
+function renderQ(){const q=Q.list[Q.i],n=Q.list.length;Q.done=false;$('#qNo').innerHTML=R(`第{だい}${Q.i+1}問{もん}`);$('#qText').innerHTML=R(q.q);const fp=figPre(q);$('#qFig').innerHTML=q.t==='pic'?(PHOTO[q.pic]?photo(q.pic,0):`<div class="pic">${PICS[q.pic]}</div>`):fp?photo(fp,0):'';$('#qStamp').innerHTML='';const ex=$('#qExp');ex.hidden=true;ex.className='exp';
+ $('#qBar').style.width=(Q.i/n*100)+'%';$('#qCount').innerHTML=R(`${Q.i+1} / ${n}問{もん}`);const pp=$('#qPaper');pp.classList.remove('unroll');void pp.offsetWidth;pp.classList.add('unroll');
+ const a=$('#qAns');a.className='qans';({c:rChoice,pic:rChoice,tf:rTF,map:rMap,order:rOrder,pair:rPair})[q.t](q,a);renderHints(q);$('.qmain').scrollTop=0}
+function rChoice(q,a){const o=shuf(q.o.map((t,i)=>({t,i})));a.innerHTML=o.map(x=>`<button class="fuda opt" data-i="${x.i}">${R(x.t)}</button>`).join('');
+ a.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{if(Q.done)return;const ok=b.dataset.i==='0';b.classList.add(ok?'ok':'ng');if(!ok)a.querySelector('[data-i="0"]').classList.add('ok');a.querySelectorAll('.opt').forEach(x=>{if(!x.classList.contains('ok')&&x!==b)x.classList.add('dim')});answer(ok)})}
+function rTF(q,a){a.innerHTML=`<div class="tfrow"><button class="fuda tfb" data-v="1">○</button><button class="fuda tfb" data-v="0">×</button></div>`;a.className='qans one';
+ a.querySelectorAll('.tfb').forEach(b=>b.onclick=()=>{if(Q.done)return;const ok=+b.dataset.v===q.a;b.classList.add(ok?'ok':'ng');if(!ok)a.querySelector(`[data-v="${q.a}"]`).classList.add('ok');answer(ok)})}
+const KANA=['ア','イ','ウ','エ'];
+function rMap(q,a){const o=shuf(q.s.map((id,i)=>({id,i})));Q.mapo=o;a.className='qans one';a.innerHTML=`<p class="inst">${R('地図{ちず}のピンをタップして答{こた}えよう')}</p><div class="mapq">${mapSvg(o.map((x,k)=>({id:x.id,i:x.i,lb:KANA[k],col:'#3e5b74'})))}</div>`;
+ a.querySelectorAll('.pin').forEach(p=>p.onclick=()=>{if(Q.done)return;const ok=p.dataset.i==='0';if(ok)me.mapok++;a.querySelector('.mapq').innerHTML=mapSvg(o.map((x,k)=>({id:x.id,lb:KANA[k],col:x.i===0?'#5f7f4a':(p.dataset.i==String(x.i)?'#9a4a4a':'#9a948a'),name:x.i===0?P(SITES[x.id].n):''})));const id=q.s[0];if(!me.sites[id]){me.sites[id]=1;Q.gs.push(id)}answer(ok)})}
+function rOrder(q,a){let it=q.it.map((t,i)=>({t,i}));do{it=shuf(it)}while(it.every((x,k)=>x.i===k));a.className='qans one';
+ a.innerHTML=`<p class="inst">${R('札{ふだ}を指{ゆび}で動{うご}かして、上{うえ}から古{ふる}い順{じゅん}にならべよう')}</p><ol class="olist" id="ol">${it.map(x=>`<li class="fuda oi" data-i="${x.i}"><span class="grip"></span><span>${R(x.t)}</span></li>`).join('')}</ol><button class="btn main" id="ogo">${R('これで決定{けってい}')}</button>`;
+ const ol=a.querySelector('#ol');let d=null;
+ ol.querySelectorAll('li').forEach(li=>{li.addEventListener('pointerdown',e=>{if(Q.done)return;e.preventDefault();d={li,y0:e.clientY};li.setPointerCapture(e.pointerId);li.classList.add('drag')});
+  li.addEventListener('pointermove',e=>{if(!d||d.li!==li)return;let dy=e.clientY-d.y0;const prev=li.previousElementSibling,next=li.nextElementSibling;
+   if(next&&dy>next.offsetHeight/2+5){ol.insertBefore(next,li);d.y0+=next.offsetHeight+10;dy=e.clientY-d.y0;sfx('snap')}else if(prev&&dy<-(prev.offsetHeight/2+5)){ol.insertBefore(li,prev);d.y0-=prev.offsetHeight+10;dy=e.clientY-d.y0;sfx('snap')}li.style.transform=`translateY(${dy}px)`});
+  const up=()=>{if(!d||d.li!==li)return;li.style.transform='';li.classList.remove('drag');d=null};li.addEventListener('pointerup',up);li.addEventListener('pointercancel',up)});
+ a.querySelector('#ogo').onclick=()=>{if(Q.done)return;const ord=[...ol.children].map(x=>+x.dataset.i),ok=ord.every((v,k)=>v===k);[...ol.children].forEach((x,k)=>x.classList.add(+x.dataset.i===k?'ok':'ng'));a.querySelector('#ogo').disabled=true;answer(ok)}}
+function rPair(q,a){const L=q.pr.map((p,i)=>({i,t:p[0]})),Rr=shuf(q.pr.map((p,i)=>({i,t:p[1]})));a.className='qans one';
+ a.innerHTML=`<p class="inst">${R('左{ひだり}の札{ふだ}→右{みぎ}の札{ふだ}の順{じゅん}にタップして、線{せん}で結{むす}ぼう')}</p><div class="pairs" id="pw"><svg id="pl"></svg><div class="pc">${L.map(x=>`<button class="fuda pL" data-i="${x.i}">${R(x.t)}</button>`).join('')}</div><div class="pc">${Rr.map(x=>`<button class="fuda pR" data-i="${x.i}">${R(x.t)}</button>`).join('')}</div></div><button class="btn main" id="pgo" disabled>${R('これで決定{けってい}')}</button>`;
+ Q.link={};Q.lock={};let sel=null;const pw=a.querySelector('#pw'),COL=['#3e5b74','#8c3d45','#7d8c55','#b08a4f'];
+ const draw=(res)=>{const r=pw.getBoundingClientRect();let s='';for(const l in Q.link){const lb=pw.querySelector(`.pL[data-i="${l}"]`).getBoundingClientRect(),rb=pw.querySelector(`.pR[data-i="${Q.link[l]}"]`).getBoundingClientRect();const x1=lb.right-r.left,y1=lb.top+lb.height/2-r.top,x2=rb.left-r.left,y2=rb.top+rb.height/2-r.top;const c=res?(+l===Q.link[l]?'#5f7f4a':'#9a4a4a'):COL[l%4];s+=`<path d="M${x1} ${y1}C${x1+30} ${y1} ${x2-30} ${y2} ${x2} ${y2}" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="${x1}" cy="${y1}" r="6" fill="${c}"/><circle cx="${x2}" cy="${y2}" r="6" fill="${c}"/>`}pw.querySelector('#pl').innerHTML=s;
+  a.querySelector('#pgo').disabled=Object.keys(Q.link).length<L.length};Q.pdraw=draw;
+ pw.querySelectorAll('.pL').forEach(b=>b.onclick=()=>{if(Q.done||Q.lock[b.dataset.i])return;sfx('tap');sel=+b.dataset.i;pw.querySelectorAll('.pL').forEach(x=>x.classList.toggle('sel',x===b))});
+ pw.querySelectorAll('.pR').forEach(b=>b.onclick=()=>{if(Q.done||sel==null)return;const ri=+b.dataset.i;for(const l in Q.link)if(Q.link[l]===ri&&!Q.lock[l])delete Q.link[l];if(Object.values(Q.link).includes(ri))return;Q.link[sel]=ri;sel=null;pw.querySelectorAll('.pL').forEach(x=>x.classList.remove('sel'));sfx('snap');draw()});
+ a.querySelector('#pgo').onclick=()=>{if(Q.done)return;const ok=L.every(x=>Q.link[x.i]===x.i);draw(true);a.querySelector('#pgo').disabled=true;answer(ok)};requestAnimationFrame(()=>draw())}
+addEventListener('resize',()=>{if(Q&&Q.pdraw&&$('#sQuiz').classList.contains('on'))Q.pdraw(Q.done)});
+function ansText(q){if(q.t==='c'||q.t==='pic')return R(q.o[0]);if(q.t==='tf')return q.a?'○':'×';if(q.t==='map')return R(SITES[q.s[0]].n+'（'+SITES[q.s[0]].pf+'）');
+ if(q.t==='order')return `<div class="tl">${q.it.map((t,k)=>`${k?'<i>→</i>':''}<b>${R(t)}</b>`).join('')}</div>`;return `<div class="tl" style="flex-direction:column;align-items:flex-start">${q.pr.map(p=>`<span><b>${R(p[0])}</b> <i>―</i> <b>${R(p[1])}</b></span>`).join('')}</div>`}
+function answer(ok){const q=Q.list[Q.i];Q.done=true;me.st.ans++;if(ok){Q.ok++;me.st.ok++;me.nigate=me.nigate.filter(x=>x!==q.id)}else if(!me.nigate.includes(q.id))me.nigate.push(q.id);
+ (q.w||[]).forEach(w=>{if(!me.words[w]){me.words[w]=1;Q.gw.push(w)}});
+ if(ok&&q.p&&me.cards[q.p]){const c=me.cards[q.p],b=star(c.xp);c.xp++;if(star(c.xp)>b){setTimeout(()=>{sfx('star');toast(R(`${CARDS[q.p].name}のカードが★${star(c.xp)}になった！`),3000)},700)}}
+ save();sfx(ok?'ok':'ng');if(ok){$('#qStamp').innerHTML=hanamaru();setTimeout(()=>sfx('stamp'),80)}
+ if(Q.boss){const L=ok?Q.boss.ok:Q.boss.ng;$('#qBub').innerHTML=R(L[Math.random()*L.length|0])}else{const b=$('#qBub');if(b)b.innerHTML=R(ok?['すごい！','その調子{ちょうし}！','よく知{し}ってるね！','やったね！'][Math.random()*4|0]:['おしい！解説{かいせつ}を読{よ}んでみよう','だいじょうぶ、次{つぎ}でとりかえそう！'][Math.random()*2|0])}
+ const last=Q.i===Q.list.length-1,ex=$('#qExp');ex.className='exp '+(ok?'ok':'ng');ex.innerHTML=`<div class="exph">${ok?'せいかい！':'ざんねん…'}</div><div class="expa"><span>${R('こたえ')}</span>${q.t==='order'||q.t==='pair'?'':ansText(q)}</div>${q.t==='order'||q.t==='pair'?ansText(q):''}${(()=>{const cp=q.t==='pic'&&PHOTO[q.pic]?q.pic:figPre(q);if(cp&&PHOTO[cp])return `<p class="cred">${R('写真{しゃしん}：'+PHOTO[cp].n+'（'+PHOTO[cp].f+'）')}</p>`;const ph=figPost(q);return ph?`<div class="expph">${photo(ph,1)}</div>`:''})()}<p>${R(q.e)}</p><div class="row" style="justify-content:flex-end;margin-top:0;clear:both"><button class="btn main" id="qNext">${R(last?'結果{けっか}を見{み}る':'つぎへ　▶')}</button></div>`;ex.hidden=false;$('#qBar').style.width=((Q.i+1)/Q.list.length*100)+'%';
+ $('#qNext').onclick=()=>{sfx('tap');if(last)finish();else{Q.i++;renderQ()}};setTimeout(()=>ex.scrollIntoView({behavior:RM?'auto':'smooth',block:'nearest'}),120)}
+function renderHints(q){const eid=Q.era!=null?ERAS[Q.era].id:null,sc=id=>id===q.p?0:CARDS[id].era===eid?1:2;const own=Object.keys(me.cards).filter(id=>!CARDS[id].gold||Q.mode==='tatsu').sort((a,b)=>sc(a)-sc(b)).slice(0,7);const h=$('#qHints');
+ if(!own.length){h.innerHTML=`<span class="hl">${R('偉人{いじん}カードを集{あつ}めると、ヒントをもらえるようになるよ')}</span>`;return}
+ h.innerHTML=`<span class="hl">${R(`ヒント のこり${Q.hints}`)}</span>`+own.map(id=>`<button class="hc ${q.p===id?'rel':''} ${Q.hints?'':'used'}" data-c="${id}" aria-label="${P(CARDS[id].name)}">${face(CARDS[id].look)}</button>`).join('');
+ h.querySelectorAll('.hc').forEach(b=>b.onclick=()=>useHint(b.dataset.c))}
+function useHint(id){if(Q.done){toast(R('次{つぎ}の問題{もんだい}で使{つか}えるよ'));return}if(Q.hints<=0){sfx('ng');toast(R('このマスのヒントは使{つか}い切{き}ったよ'));return}const q=Q.list[Q.i],a=$('#qAns'),c=CARDS[id];let msg=c.hint;
+ if(q.t==='c'||q.t==='pic'){const w=[...a.querySelectorAll('.opt')].filter(x=>x.dataset.i!=='0'&&!x.classList.contains('gone'));if(w.length<=1){toast(R('もう十分{じゅうぶん}しぼれているよ'));return}w[Math.random()*w.length|0].classList.add('gone')}
+ else if(q.t==='map'){const w=[...a.querySelectorAll('.pin')].filter(x=>x.dataset.i!=='0'&&!x.classList.contains('dim'));if(w.length<=1){toast(R('もう十分{じゅうぶん}しぼれているよ'));return}const x=w[Math.random()*w.length|0];x.classList.add('dim');x.style.pointerEvents='none'}
+ else if(q.t==='tf'){msg=q.h||'問題文{もんだいぶん}を、もう一度{いちど}ゆっくり読{よ}んでみて。'}
+ else if(q.t==='order'){const ol=a.querySelector('#ol'),f=ol.querySelector('[data-i="0"]');ol.insertBefore(f,ol.firstChild);f.style.outline='3px solid #b08a4f';msg='いちばん古{ふる}いものを一番上{いちばんうえ}にしてやったぞ。'}
+ else if(q.t==='pair'){const k=q.pr.findIndex((_,i)=>Q.link[i]!==i);if(k<0){toast(R('もう全部{ぜんぶ}あっているかも！'));return}for(const l in Q.link)if(Q.link[l]===k)delete Q.link[l];Q.link[k]=k;Q.lock[k]=1;Q.pdraw();msg='1組{くみ}、結{むす}んでおいたぞ。'}
+ Q.hints--;sfx('chime');toast(`<b>${R(c.name)}</b>：${R(msg)}`,3400);renderHints(q)}
+async function finish(){const n=Q.list.length,ok=Q.ok,m=Q.mode;let clear=false,html='',cards=[];const gain=`<div class="gains">${Q.gw.map(w=>`<span>${R('ことば：'+WORDS[w][0])}</span>`).join('')}${Q.gs.map(s=>`<span>${R('発見{はっけん}：'+SITES[s].n)}</span>`).join('')}</div>`;
+ if(m==='square'||m==='boss'){const eid=ERAS[Q.era].id,sq=SQ[eid][Q.sq],pos=me.pos[eid]||0;clear=ok>=(m==='boss'?4:3);if(clear&&ok===n)me.flags.nomiss=1;
+  if(clear){if(Q.sq===pos)me.pos[eid]=pos+1;if(sq.card&&!me.cards[sq.card]){me.cards[sq.card]={xp:0};cards.push(sq.card)}if(m==='boss')me.cleared[eid]=me.cleared[eid]||Date.now()}save();
+  const npc=NPC[sq.npc],cm=m==='boss'?(clear?Q.boss.win:Q.boss.lose):clear?(ok===n?'全問{ぜんもん}正解{せいかい}！ほんとうによく知{し}ってるね！':'やったね！次{つぎ}のマスへ進{すす}もう！'):'おしい！解説{かいせつ}を思{おも}い出{だ}して、もう一回{いっかい}！';
+  html=`<div class="res ${clear?'win':''}"><h2>${R(clear?(m==='boss'?'ボスに認{みと}められた！':'マスクリア！'):'もう少{すこ}し！')}</h2><div class="big">${ok}<small> / ${n}</small></div><p>${R(clear?`${n}問中{もんちゅう}${ok}問{もん}正解{せいかい}`:`クリアには${m==='boss'?4:3}問{もん}の正解{せいかい}が必要{ひつよう}だよ`)}</p>${gain}<div class="talk" style="text-align:left;margin-top:8px">${face(m==='boss'?Q.boss.look:npc.look)}<div class="tb"><div class="tn">${R(m==='boss'?Q.boss.name:npc.n)}</div><div class="tt" style="min-height:0;font-size:18px">${R(cm)}</div></div></div>
+   <div class="row">${clear?`<button class="btn main" data-v="go">${R('すすむ')}</button>`:`<button class="btn" data-v="back">${R('盤{ばん}にもどる')}</button><button class="btn main" data-v="retry">${R('もう一度{いちど}')}</button>`}</div></div>`;
+  sfx(clear?'clear':'ng');const v=await modal(html,m==='boss'?'dark':'');
+  if(v==='retry'){startQuiz({mode:m,era:Q.era,sq:Q.sq,list:shuf(POOL[sq.pool]).slice(0,5)});return}
+  for(const id of cards)await cardGet(id);
+  if(m==='boss'&&clear&&NEWS[eid]&&!me.news[eid]){me.news[eid]=1;save();sfx('chime');await showNews(eid)}
+  checkTitles();openBoard(Q.era,clear?pos:null);return}
+ if(m==='repair'){if(ok>0)me.rep++;save();await modal(`<div class="res ${ok?'win':''}"><h2>${R(ok===n?'タイムマシン、完全{かんぜん}復活{ふっかつ}！':ok?'タイムマシンが少{すこ}し直{なお}った！':'まだ直{なお}らない…')}</h2><div class="big">${ok}<small> / ${n}</small></div><p>${R(`のこりのにがて：${me.nigate.length}こ`)}</p><div class="row"><button class="btn main" data-v="1">${R('タイムマシンへ')}</button></div></div>`);sfx(ok?'clear':'tap');checkTitles();enterHome('repair');return}
+ if(m==='debug'){await modal(`<div class="res"><h2>${R('確認{かくにん}おわり')}</h2><div class="big">${ok}<small> / ${n}</small></div><div class="row"><button class="btn main" data-v="1">${R('確認{かくにん}画面{がめん}へ')}</button></div></div>`);enterHome('debug');return}
+ if(m==='tatsu'){const before=dan(me.tok);me.tok+=ok;const after=dan(me.tok);if(ok===n&&!me.cards.himikoG){me.cards.himikoG={xp:0};cards.push('himikoG')}save();sfx('clear');
+  const v=await modal(`<div class="res win"><h2>${R('達人{たつじん}の間{ま}')}</h2><div class="big">${ok}<small> / ${n}</small></div><div class="rank" style="color:var(--kin2)">${R(after)}</div><p>${R(before!==after?'段位{だんい}が上{あ}がった！':`次{つぎ}の段位{だんい}まで、正解{せいかい}を積{つ}み重{かさ}ねよう`)}</p><div class="row"><button class="btn" data-v="back">${R('もどる')}</button><button class="btn main" data-v="retry">${R('もう一度{いちど}')}</button></div></div>`,'dark');
+  for(const id of cards)await cardGet(id);checkTitles();if(v==='retry')startTatsu();else enterHome('travel')}}
+async function cardGet(id){sfx('get');const c=CARDS[id];await modal(`<div class="cget"><div class="rays"></div>${cardHtml(id)}<h2>${R(c.name)}${R(c.gold?'の金札{きんふだ}を手{て}に入{い}れた！':'が仲間{なかま}になった！')}</h2><p style="position:relative;font-weight:700">「${R(c.line)}」</p><p class="muted" style="position:relative;font-size:14px">${R('問題{もんだい}でヒントをくれるよ。カードの「絵巻{えまき}」にもはってみよう。')}</p><div class="row"><button class="btn main" data-v="1">${R('やったね')}</button></div></div>`)}
+function startRepair(){if(!me.nigate.length){toast(R('にがて問題{もんだい}はないよ'));return}startQuiz({mode:'repair',list:shuf(me.nigate.filter(id=>QB[id])).slice(0,5).map(id=>QB[id])})}
+async function startTatsu(){sfx('gong');const v=await talk('elder',NPC.okina.n,['よくぞ来{き}た、旅人{たびびと}よ。ここは達人{たつじん}の間{ま}じゃ。','中学校{ちゅうがっこう}で学{まな}ぶような、むずかしい問題{もんだい}も出{で}るぞ。','正解{せいかい}を積{つ}み重{かさ}ねれば段位{だんい}が上{あ}がり、全問{ぜんもん}正解{せいかい}なら金{きん}の札{ふだ}がもらえる。'],'挑戦{ちょうせん}する','dark','達人{たつじん}の間{ま}');if(v!=='1')return;startQuiz({mode:'tatsu',list:shuf(POOL.T).slice(0,5)})}
+async function maybeBroke(){if(me.nigate.length>=3&&Math.random()<.4){await sleep(500);sfx('broke');const v=await modal(`<div class="res"><h2>${R('ガガガ…タイムマシンが故障{こしょう}した！')}</h2><p style="font-size:18px;line-height:1.9">${R(`まちがえた問題{もんだい}が${me.nigate.length}こ、部品{ぶひん}をこわしているみたい。にがて問題{もんだい}を解{と}いて修理{しゅうり}しよう！`)}</p><div class="row"><button class="btn" data-v="0">${R('あとで')}</button><button class="btn main" data-v="1">${R('修理{しゅうり}する')}</button></div></div>`);if(v==='1')startRepair()}}
+
+
+const TNAME={c:'4択',tf:'○×',pic:'写真',map:'地図',order:'ならべかえ',pair:'線つなぎ'};
+function paneDebug(){const all=Object.values(QB),cnt={};all.forEach(q=>cnt[q.t]=(cnt[q.t]||0)+1);
+ return `<div class="panehead"><h2>${R('確認{かくにん}（先生用{せんせいよう}）')}</h2><p>${R('すべての問題{もんだい}・答{こた}え・演出{えんしゅつ}をここから確{たし}かめられます。先生{せんせい}の記録{きろく}は子{こ}どもの成績{せいせき}には入{はい}りません。')}</p></div>
+ <div class="sec"><h3>${R('演出{えんしゅつ}を見{み}る')}</h3><div class="row" style="justify-content:flex-start;margin-top:0">
+  <button class="btn" data-dbg="warp">タイムスリップ</button><button class="btn" data-dbg="boss">ボス戦</button><button class="btn" data-dbg="tatsu">達人の間</button><button class="btn" data-dbg="broke">故障イベント</button><button class="btn" data-dbg="card">カード獲得</button><button class="btn" data-dbg="news">時代新聞</button><button class="btn" data-dbg="title">称号の通知</button></div></div>
+ <div class="sec"><h3>${R('音{おと}を聞{き}く')}</h3><div class="row" style="justify-content:flex-start;margin-top:0">${Object.keys(BG).map(k=>`<button class="btn" data-bgm="${k}">BGM：${{home:'タイムマシン',jomon:'縄文・弥生',boss:'ボス戦',tatsu:'達人の間'}[k]}</button>`).join('')}<button class="btn" data-bgm="">BGMを止める</button></div>
+  <div class="row" style="justify-content:flex-start">${Object.keys(SFX).map(k=>`<button class="btn" data-se="${k}" style="min-height:40px;font-size:15px">${k}</button>`).join('')}</div></div>
+ <div class="sec"><h3>${R('マスを直接{ちょくせつ}プレイ')}</h3>${ERAS.map((e,ei)=>SQ[e.id]?`<p style="margin:10px 0 4px;font-weight:700">${R(e.name)}</p><div class="row" style="justify-content:flex-start;margin-top:0">${SQ[e.id].map((q,i)=>`<button class="btn" data-sq="${ei}:${i}" style="min-height:40px;font-size:15px">${R(`${i+1}. ${q.name}`)}</button>`).join('')}</div>`:'').join('')}</div>
+ <div class="sec"><h3>${R(`問題{もんだい}一覧{いちらん}（全{ぜん}${all.length}問{もん}）`)}</h3><p class="muted" style="margin-top:0">${Object.entries(cnt).map(([k,v])=>`${TNAME[k]} ${v}問`).join('　')}</p>
+ ${Object.keys(POOL).map(k=>`<details style="margin:8px 0;background:#f6f0e4;border-radius:12px;padding:10px 14px"><summary style="font-weight:700;font-size:18px;cursor:pointer;min-height:36px">${POOLNAME[k]}（${POOL[k].length}問）</summary>
+  <table class="stack" style="margin-top:8px"><thead><tr><th>形式</th><th>問題</th><th>答え</th><th>関係</th><th></th></tr></thead><tbody>${POOL[k].map(q=>`<tr><td>${TNAME[q.t]}</td><td>${R(q.q)}${q.pic&&PHOTO[q.pic]?`<br><img src="img/${q.pic}.jpg" style="height:60px;border-radius:6px;margin-top:4px">`:''}${(()=>{const a=figPre(q),b=figPost(q),k=a||b;return k&&q.t!=='pic'?`<br><img src="img/${k}.jpg" style="height:48px;border-radius:6px;margin-top:4px;${a?'':'opacity:.55'}"><span class="muted" style="font-size:12px"> ${a?'問題で表示':'解説で表示'}</span>`:''})()}</td><td><b>${ansText(q)}</b><div class="muted" style="font-size:13px">${R(q.e)}</div></td><td style="font-size:13px">${q.p?R(CARDS[q.p].name):''}${q.w?'<br>'+q.w.map(w=>R(WORDS[w][0])).join('、'):''}</td><td><button class="btn" data-q="${q.id}" style="min-height:40px;font-size:15px;white-space:nowrap">解く</button></td></tr>`).join('')}</tbody></table></details>`).join('')}</div>
+ <div class="sec"><h3>${R('先生{せんせい}の記録{きろく}をリセット')}</h3><button class="btn enji" id="dbgReset">先生用の記録をはじめにもどす</button></div>`}
+function bindDebug(){
+ $$('[data-q]').forEach(b=>b.onclick=()=>{sfx('tap');startQuiz({mode:'debug',era:0,list:[QB[b.dataset.q]]})});
+ $$('[data-sq]').forEach(b=>b.onclick=()=>{sfx('tap');const[x,y]=b.dataset.sq.split(':');B=+x;sqTap(+y)});
+ $$('[data-bgm]').forEach(b=>b.onclick=()=>{ac();const k=b.dataset.bgm;if(!k){stopBgm();AU.cur=null}else{const o=D.set.bgm;D.set.bgm=true;AU.cur=null;bgm(k);D.set.bgm=o}});
+ $$('[data-se]').forEach(b=>b.onclick=()=>{ac();const o=D.set.se;D.set.se=true;sfx(b.dataset.se);D.set.se=o});
+ $$('[data-dbg]').forEach(b=>b.onclick=async()=>{const k=b.dataset.dbg;ac();
+  if(k==='warp')warp(0);else if(k==='boss'){B=0;startQuiz({mode:'boss',era:0,sq:7,list:shuf(POOL.H).slice(0,5)})}else if(k==='tatsu')startTatsu();
+  else if(k==='broke'){const n=me.nigate;me.nigate=['a1','a2','a3'];const r=Math.random;Math.random=()=>0;await maybeBroke();Math.random=r;if(Q&&Q.mode==='repair')return;me.nigate=n}
+  else if(k==='card')cardGet('himiko');else if(k==='news')showNews('jomon');else if(k==='title'){sfx('star');toast(R('称号{しょうごう}「縄文{じょうもん}・弥生{やよい}マスター」を手{て}に入{い}れた！'),3200)}});
+ const r=$('#dbgReset');if(r)r.onclick=()=>{if(!r.dataset.c){r.dataset.c=1;r.textContent='本当にもどす？もう一度押す';return}D.teacher=null;save();sfx('broke');toast('先生用の記録をもどしました');renderProfiles()}}
+/* ================= 先生モード ================= */
+let tSel=-1;
+function openTeacher(){show('sTeacher');$('#tBack').innerHTML='◀ もどる';renderTeacher()}
+$('#tBack').onclick=()=>{sfx('tap');renderProfiles()};
+function renderTeacher(){const ps=D.profiles;$('#tBody').innerHTML=`<p class="muted">${R('子{こ}どもごとの記録{きろく}です。名前{なまえ}をタップすると、にがて問題{もんだい}や設定{せってい}を見{み}られます。')}</p>
+ ${ps.length?`<table class="stack"><thead><tr><th>名前</th><th>クリア</th><th>正解/回答</th><th>正答率</th><th>カード</th><th>ことば</th><th>にがて</th><th>達人</th></tr></thead><tbody>${ps.map((p,i)=>{fix(p);const r=p.st.ans?Math.round(p.st.ok/p.st.ans*100):0;return `<tr data-i="${i}" style="cursor:pointer;${i===tSel?'background:#efe2c4':''}"><td><b>${esc(p.name)}</b></td><td class="n">${clearedN(p)}</td><td class="n">${p.st.ok}/${p.st.ans}</td><td class="n">${r}%</td><td class="n">${Object.keys(p.cards).length}</td><td class="n">${Object.keys(p.words).length}</td><td class="n">${p.nigate.length}</td><td>${P(dan(p.tok))}</td></tr>`}).join('')}</tbody></table>`:'<p>まだ旅人がいません。</p>'}
+ <div id="tdet"></div><div class="row" style="justify-content:flex-start;margin-top:22px"><button class="btn" id="tPw">パスワードを変更する</button></div>`;
+ $('#tPw').onclick=async()=>{const p=await pwModal('新{あたら}しいパスワード','4文字{もじ}以上{いじょう}で2回{かい}入{い}れてください。',true);if(p){D.tpw=hashPw(p);save();toast('パスワードを変更しました')}};
+ $$('#tBody tr[data-i]').forEach(tr=>tr.onclick=()=>{tSel=+tr.dataset.i;renderTeacher()});if(tSel>=0&&ps[tSel])renderTDet()}
+function renderTDet(){const p=ps(),pp=D.profiles[tSel];function ps(){return D.profiles[tSel]}
+ $('#tdet').innerHTML=`<div class="tdet"><h3 style="font-size:22px">${esc(pp.name)}</h3><p style="margin:6px 0">にがて問題（${pp.nigate.length}）</p><ol class="nlist" style="max-height:none">${pp.nigate.map(id=>QB[id]?`<li>${esc(P(QB[id].q))}<br><span style="color:#5f7f4a">答え：${esc(P(QB[id].o?QB[id].o[0]:QB[id].t==='tf'?(QB[id].a?'○':'×'):QB[id].t==='map'?SITES[QB[id].s[0]].n:'（並べかえ・線つなぎ）'))}</span></li>`:'').join('')||'<li>なし</li>'}</ol>
+ <div class="row"><button class="btn" id="tAll">${pp.all?'時代の開放をもとにもどす':'すべての時代をひらく'}</button><button class="btn" id="tTat">${pp.tatsu?'達人の間をとじる':'達人の間をひらく'}</button><button class="btn enji" id="tDel">記録を消す</button></div></div>`;
+ $('#tAll').onclick=()=>{pp.all=!pp.all;save();sfx('tap');renderTeacher()};$('#tTat').onclick=()=>{pp.tatsu=!pp.tatsu;save();sfx('tap');renderTeacher()};
+ $('#tDel').onclick=e=>{const b=e.currentTarget;if(b.dataset.c){D.profiles.splice(tSel,1);tSel=-1;D.cur=-1;save();sfx('broke');renderTeacher()}else{b.dataset.c=1;b.textContent='本当に消す？もう一度押す'}}}
+
+/* ================= 起動 ================= */
+document.body.classList.toggle('nofuri',!D.set.furi);
+renderProfiles();
+}
+</script></body></html>
